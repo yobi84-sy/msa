@@ -10,10 +10,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - "server.aws-esk.com"
-    secretName: server-aws-esk-com-tls
+    - "server.sy84.store"
+    secretName: server-sy84-store-tls
   rules:
-  - host: server.aws-esk.com  # 설정하려는 도메인 이름. 제외시에 elb주소로도 접근할수 있는 모든 도메인 접근 가능.
+  - host: server.sy84.store  # 설정하려는 도메인 이름. 제외시에 elb주소로도 접근할수 있는 모든 도메인 접근 가능.
     http:
       paths:
       - path: /member-service/ #모든 url요청을 nginx-service로 라우팅
