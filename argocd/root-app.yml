@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/sol-aws/eks-msa.git
+    repoURL: https://github.com/yobi84-sy/msa.git
     targetRevision: main
     path: argocd/apps
   destination:
