@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-depl
+  namespace: soldesk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
+      labels:
+        app: product
+    spec:
+      containers:
+        - name: product-container
+          image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/product-service:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: "500Mi"
+            requests:
+              cpu: "0.5"
+              memory: "250Mi"
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: my-app-secrets
+                  key: DB_HOST
+            - name: DB_PW
+              valueFrom:
+                secretKeyRef:
+                  name: my-app-secrets
+                  key: DB_PW
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: soldesk
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: product

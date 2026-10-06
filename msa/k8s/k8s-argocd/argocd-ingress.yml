@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  namespace: argocd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: my-issuer
+spec:
+  tls:
+  - hosts:
+      - argo.aws-esk.com
+    secretName: argo-aws-esk-com-tls
+  rules:
+  - host: argo.aws-esk.com
+    http:
+      paths:
+        - path: /
+          pathType: Prefix
+
+          backend:
+            service:
+              name: argocd-server
+              port:
+                number: 80

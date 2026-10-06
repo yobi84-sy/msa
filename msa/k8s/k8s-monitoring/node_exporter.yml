@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      # 핵심: 노드 IP(호스트 네트워크)에 9100을 직접 바인딩
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      # (옵션) 노드에 taint가 있어도 DaemonSet이 최대한 올라가게 함
+      tolerations:
+        - operator: "Exists"
+
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter
+          ports:
+            - containerPort: 9100
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: root
+              mountPath: /rootfs
+              readOnly: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: root
+          hostPath:
+            path: /

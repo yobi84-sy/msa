@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apigateway-depl
+  namespace: soldesk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apigateway
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
+      labels:
+        app: apigateway
+    spec:
+      containers:
+      - name: apigateway-container
+        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/apigateway:latest
+        ports:
+        - containerPort: 8080
+        resources:
+        # 컨테이너가 사용할수 있는 리소스의 최대치
+          limits:
+            cpu: "1"
+            memory: "500Mi"
+        # 컨테이너가 시작될떄 보장받아야 하는 최소 자원
+          requests:
+            cpu: "0.5"
+            memory: "250Mi"
+ 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apigateway-service
+  namespace: soldesk
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector: 
+    app: apigateway

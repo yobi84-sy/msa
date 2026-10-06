@@ -1,0 +1,165 @@
+name: deploy order order-backend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest   # GitHub가 제공하는 Ubuntu 가상머신에서 실행
+
+    steps:
+      # GitHub 코드 체크아웃
+      - name: checkout github
+        # actions/checkout@v4
+        # 현재 GitHub 저장소 코드를 runner(ubuntu 서버)에 내려받는 공식 액션
+        # 이 단계 없으면 docker build할 소스 코드가 없음
+        uses: actions/checkout@v4
+
+
+      # kubectl 설치
+      - name: install kubectl
+        # azure/setup-kubectl@v3
+        # GitHub runner에 kubectl CLI를 설치해주는 액션
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.35.0"
+
+
+      # AWS 인증
+      - name: configure aws
+        # aws-actions/configure-aws-credentials@v4
+        # → AWS AccessKey / SecretKey를 이용해 로그인 이후 ECR push, EKS 접근 가능
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET }}
+          aws-region: ap-northeast-2
+
+
+      # EKS 클러스터 접속 설정
+      - name: update cluster information
+        run: aws eks update-kubeconfig --name my-cluster --region ap-northeast-2
+        # kubectl이 EKS 클러스터에 접속할 수 있도록 kubeconfig 생성
+
+
+      # ECR 로그인
+      - name: Login to ECR
+        # aws-actions/amazon-ecr-login@v2
+        # → Docker가 AWS ECR에 push할 수 있도록 로그인 처리
+        uses: aws-actions/amazon-ecr-login@v2
+
+
+      # 변경된 폴더 감지
+      - name: detect changed services
+        id: changes
+
+        # dorny/paths-filter@v3
+        # push에서 변경된 파일 목록을 분석 지정한 경로에 변경이 있으면 true/false 자동 생성
+        # changes.outputs.member 같은 값으로 접근 가능
+        uses: dorny/paths-filter@v3
+
+        with:
+          filters: |
+            gateway:
+              - 'msa/apigateway/**'
+            member:
+              - 'msa/member/**'
+            ordering:
+              - 'msa/ordering/**'
+            product:
+              - 'msa/product/**'
+
+      # 변경 없으면 종료
+      - name: stop if no service changed
+        # 모든 서비스가 false일 경우 실행
+        # 불필요한 docker build 방지
+        if: |
+          steps.changes.outputs.gateway != 'true' &&
+          steps.changes.outputs.member != 'true' &&
+          steps.changes.outputs.ordering != 'true' &&
+          steps.changes.outputs.product != 'true'
+        run: |
+          echo "No service directory changed. Skip build & deploy."
+          exit 0
+
+
+      # Gateway 빌드
+      - name: gateway build and push docker image to ecr
+        if: steps.changes.outputs.gateway == 'true'
+        env:         
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: apigateway
+          IMAGE_TAG: latest
+        run: |
+          docker build \
+            -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
+            -f ./msa/apigateway/Dockerfile ./msa/apigateway
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: deploy gateway
+        if: steps.changes.outputs.gateway == 'true'
+        run: |
+          kubectl apply -f ./msa/apigateway/k8s/depl_svc.yml
+          kubectl rollout restart deployment apigateway-depl -n soldesk
+
+
+      # Member 빌드
+      - name: member build and push docker image to ecr
+        if: steps.changes.outputs.member == 'true'
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: member-service
+          IMAGE_TAG: latest
+        run: |
+          docker build \
+            -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
+            -f ./msa/member/Dockerfile ./msa/member
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: deploy member
+        if: steps.changes.outputs.member == 'true'
+        run: |
+          kubectl apply -f ./msa/member/k8s/depl_svc.yml
+          kubectl rollout restart deployment member-depl -n soldesk
+
+
+      # Ordering 빌드
+      - name: order build and push docker image to ecr
+        if: steps.changes.outputs.ordering == 'true'
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: ordering-service
+          IMAGE_TAG: latest
+        run: |
+          docker build \
+            -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
+            -f ./msa/ordering/Dockerfile ./msa/ordering
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: deploy ordering
+        if: steps.changes.outputs.ordering == 'true'
+        run: | 
+          kubectl apply -f ./msa/ordering/k8s/depl_svc.yml
+          kubectl rollout restart deployment ordering-depl -n soldesk
+
+
+      # Product 빌드
+      - name: product build and push docker image to ecr
+        if: steps.changes.outputs.product == 'true'
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: product-service
+          IMAGE_TAG: latest
+        run: |
+          docker build \
+            -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
+            -f ./msa/product/Dockerfile ./msa/product
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: deploy product
+        if: steps.changes.outputs.product == 'true'
+        run: |
+          kubectl apply -f ./msa/product/k8s/depl_svc.yml
+          kubectl rollout restart deployment product-depl -n soldesk
