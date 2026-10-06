@@ -12,7 +12,7 @@ spring:
         cors-configurations:
           '[/**]':
             allowedOrigins:
-              - 'https://server.aws-esk.com'
+              - 'https://server.sy84.store'
             allowedMethods: '*'
             allowedHeaders: '*'
             allowedCredentials: true
