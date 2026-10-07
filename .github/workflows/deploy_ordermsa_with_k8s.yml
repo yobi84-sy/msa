@@ -70,6 +70,8 @@ jobs:
               - 'msa/ordering/**'
             product:
               - 'msa/product/**'
+            frontend:
+              - 'msa/frontend/**'  
 
       # 변경 없으면 종료
       - name: stop if no service changed
@@ -79,7 +81,8 @@ jobs:
           steps.changes.outputs.gateway != 'true' &&
           steps.changes.outputs.member != 'true' &&
           steps.changes.outputs.ordering != 'true' &&
-          steps.changes.outputs.product != 'true'
+          steps.changes.outputs.product != 'true' &&
+           steps.changes.outputs.frontend != 'true'
         run: |
           echo "No service directory changed. Skip build & deploy."
           exit 0
@@ -163,3 +166,23 @@ jobs:
         run: |
           kubectl apply -f ./msa/product/k8s/depl_svc.yml
           kubectl rollout restart deployment product-depl -n soldesk
+
+
+      # Frontend 빌드
+      - name: frontend build and push docker image to ecr
+        if: steps.changes.outputs.frontend == 'true'
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: frontend-service
+          IMAGE_TAG: latest
+        run: |
+          docker build \
+            -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
+            -f ./msa/frontend/Dockerfile ./msa/frontend
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: deploy frontend
+        if: steps.changes.outputs.frontend == 'true'
+        run: |
+          kubectl apply -f ./msa/frontend/k8s/depl_svc.yml
+          kubectl rollout restart deployment frontend-depl -n soldesk

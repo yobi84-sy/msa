@@ -9,23 +9,32 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.List;
 
 @Service
 @Transactional
 public class ProductService {
     private final ProductRepository productRepository;
+    private final S3Service s3Service;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, S3Service s3Service) {
         this.productRepository = productRepository;
+        this.s3Service = s3Service;
     }
 
-    public Product productCreate(ProductRegisterDto dto, String userId) {
+    public Product productCreate(ProductRegisterDto dto, String userId) throws IOException {
+        String finalImageUrl = dto.getImageUrl();
+        if (dto.getImageFile() != null && !dto.getImageFile().isEmpty()) {
+            finalImageUrl = s3Service.uploadFile(dto.getImageFile());
+        }
+
         Long memberId = 1L;
         if (userId != null && !userId.isBlank()) {
             memberId = Long.parseLong(userId);
         }
-        return productRepository.save(dto.toEntity(memberId));
+
+        return productRepository.save(dto.toEntity(memberId, finalImageUrl));
     }
 
     @Transactional(readOnly = true)
