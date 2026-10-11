@@ -205,9 +205,10 @@ a { color: inherit; text-decoration: none; }
 .section-title { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; }
 .section-sub { color: var(--muted); font-size: 14px; }
 .section-count { font-weight: 700; }
+/* 1. 상품 목록 카드 배치 */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 22px;
   margin: 0 0 46px;
 }
@@ -225,11 +226,12 @@ a { color: inherit; text-decoration: none; }
 }
 .card-link:hover { transform: translateY(-6px); box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12); }
 .card-image-wrap { position: relative; }
+/* 2. 메인 페이지 상품 이미지 */
 .card img {
   width: 100%;
-  height: 260px;
-  object-fit: cover;
-  background: #e5e7eb;
+  height: 220px;
+  object-fit: contain;
+  background: #f3f4f6;
   display: block;
 }
 .stock-badge {
@@ -319,8 +321,10 @@ a { color: inherit; text-decoration: none; }
   padding: 30px;
   box-shadow: var(--shadow);
 }
-.detail-image-wrap { background: #f3f4f6; border-radius: 24px; overflow: hidden; }
-.detail-image { width: 100%; height: 100%; min-height: 420px; object-fit: cover; display: block; }
+/* 3. 상품 상세 이미지 영역 */
+.detail-image-wrap { height: 360px; background: #f3f4f6; border-radius: 24px; overflow: hidden; }
+/* 4. 상품 상세 이미지 */
+.detail-image { width: 100%; height: 100%; object-fit: contain; display: block; }
 .detail-category { color: var(--accent); font-weight: 800; margin-bottom: 10px; }
 .detail-title { margin: 0 0 18px; font-size: 38px; letter-spacing: -0.04em; }
 .detail-price { font-size: 34px; font-weight: 800; margin-bottom: 16px; }
