@@ -4,7 +4,6 @@ metadata:
   name: ordering-depl
   namespace: soldesk
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: ordering 
