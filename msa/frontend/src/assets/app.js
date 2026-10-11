@@ -94,7 +94,21 @@ async function apiRequest(url, options = {}) {
 }
 
 function getImageUrl(url) {
-  return url || PLACEHOLDER_IMAGE;
+  if (!url) {
+    return PLACEHOLDER_IMAGE;
+  }
+
+  const s3Origin =
+  'https://sales-mall-dev-product-images-021158485482-ap-northeast-2.s3.ap-northeast-2.amazonaws.com';
+
+  const cdnOrigin =
+  'https://d19w9wvlw0k2t8.cloudfront.net';
+
+  if (url.startsWith(`${s3Origin}/products/`)) {
+    return cdnOrigin + url.slice(s3Origin.length);
+  }
+
+  return url;
 }
 
 function formatPrice(value) {
