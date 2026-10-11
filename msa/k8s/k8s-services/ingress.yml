@@ -4,14 +4,18 @@ metadata:
   name: order-backend-ingress
   namespace: soldesk
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: 20m
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: my-issuer
+    # F5 NGINX - 업로드 최대 20MB
+    nginx.org/client-max-body-size: "20m"
+    # HTTP → HTTPS 리다이렉트 시 요청 메서드 유지
+    nginx.org/http-redirect-code: "308"
 spec:
+  ingressClassName: nginx
+
   tls:
   - hosts:
     - "server.sy84.store"
     secretName: server-sy84-store-tls
+
   rules:
   - host: server.sy84.store
     http:
@@ -23,6 +27,7 @@ spec:
             name: apigateway-service
             port:
               number: 80
+
       - path: /product-service
         pathType: Prefix
         backend:
@@ -30,6 +35,7 @@ spec:
             name: apigateway-service
             port:
               number: 80
+
       - path: /ordering-service
         pathType: Prefix
         backend:
@@ -37,6 +43,7 @@ spec:
             name: apigateway-service
             port:
               number: 80
+
       - path: /
         pathType: Prefix
         backend:

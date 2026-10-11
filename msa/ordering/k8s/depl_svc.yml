@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: ordering-container
-        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/ordering-service:latest
+        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-ordering:v1
         ports:
         - containerPort: 8080
         resources:

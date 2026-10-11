@@ -1,0 +1,14 @@
+
+# ==========================================
+# Product ServiceAccount - IRSA
+# ==========================================
+
+apiVersion: v1
+kind: ServiceAccount
+
+metadata:
+  name: product-sa
+  namespace: soldesk
+
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::021158485482:role/sales-mall-dev-product-s3-role

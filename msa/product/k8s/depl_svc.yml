@@ -17,9 +17,10 @@ spec:
       labels:
         app: product
     spec:
+      serviceAccountName: product-sa
       containers:
         - name: product-container
-          image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/product-service:latest
+          image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-product:v1
           ports:
             - containerPort: 8080
           resources:
@@ -40,16 +41,8 @@ spec:
                 secretKeyRef:
                   name: my-app-secrets
                   key: DB_PW
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: aws-secret
-                  key: AWS_ACCESS_KEY_ID
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: aws-secret
-                  key: AWS_SECRET_ACCESS_KEY
+            - name: S3_BUCKET
+              value: "sales-mall-dev-product-images-021158485482-ap-northeast-2"
           readinessProbe:
             httpGet:
               path: /health

@@ -2,12 +2,18 @@ name: deploy order order-backend
 
 on:
   push:
+    # Branches Name Change
     branches:
-      - main
+      - yobi-v1
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest   # GitHub가 제공하는 Ubuntu 가상머신에서 실행
+
+    # GitHub OIDC 인증 권한
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       # GitHub 코드 체크아웃
@@ -27,20 +33,18 @@ jobs:
           version: "v1.35.0"
 
 
-      # AWS 인증
+      # GitHub OIDC → AWS IAM Role 임시 인증
       - name: configure aws
-        # aws-actions/configure-aws-credentials@v4
-        # → AWS AccessKey / SecretKey를 이용해 로그인 이후 ECR push, EKS 접근 가능
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET }}
+          role-to-assume: arn:aws:iam::021158485482:role/sales-mall-dev-github-actions-role
           aws-region: ap-northeast-2
 
 
       # EKS 클러스터 접속 설정
       - name: update cluster information
-        run: aws eks update-kubeconfig --name my-cluster --region ap-northeast-2
+      # 생성 된 클러스 이름 확인 필요.
+        run: aws eks update-kubeconfig --name sales-mall-dev-eks --region ap-northeast-2
         # kubectl이 EKS 클러스터에 접속할 수 있도록 kubeconfig 생성
 
 
@@ -93,8 +97,8 @@ jobs:
         if: steps.changes.outputs.gateway == 'true'
         env:         
           REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
-          REPOSITORY: apigateway
-          IMAGE_TAG: latest
+          REPOSITORY: sales-mall-dev-apigateway
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker build \
             -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
@@ -103,9 +107,15 @@ jobs:
 
       - name: deploy gateway
         if: steps.changes.outputs.gateway == 'true'
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: sales-mall-dev-apigateway
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          kubectl apply -f ./msa/apigateway/k8s/depl_svc.yml
-          kubectl rollout restart deployment apigateway-depl -n soldesk
+          sed -E "s#(^[[:space:]]*image: ).*#\1${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}#" \
+            ./msa/apigateway/k8s/depl_svc.yml | kubectl apply -f -
+
+          kubectl rollout status deployment/apigateway-depl -n soldesk --timeout=300s
 
 
       # Member 빌드
@@ -113,8 +123,8 @@ jobs:
         if: steps.changes.outputs.member == 'true'
         env:
           REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
-          REPOSITORY: member-service
-          IMAGE_TAG: latest
+          REPOSITORY: sales-mall-dev-member
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker build \
             -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
@@ -123,9 +133,15 @@ jobs:
 
       - name: deploy member
         if: steps.changes.outputs.member == 'true'
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: sales-mall-dev-member
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          kubectl apply -f ./msa/member/k8s/depl_svc.yml
-          kubectl rollout restart deployment member-depl -n soldesk
+          sed -E "s#(^[[:space:]]*image: ).*#\1${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}#" \
+            ./msa/member/k8s/depl_svc.yml | kubectl apply -f -
+
+          kubectl rollout status deployment/member-depl -n soldesk --timeout=300s
 
 
       # Ordering 빌드
@@ -133,8 +149,8 @@ jobs:
         if: steps.changes.outputs.ordering == 'true'
         env:
           REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
-          REPOSITORY: ordering-service
-          IMAGE_TAG: latest
+          REPOSITORY: sales-mall-dev-ordering
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker build \
             -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
@@ -143,9 +159,15 @@ jobs:
 
       - name: deploy ordering
         if: steps.changes.outputs.ordering == 'true'
-        run: | 
-          kubectl apply -f ./msa/ordering/k8s/depl_svc.yml
-          kubectl rollout restart deployment ordering-depl -n soldesk
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: sales-mall-dev-ordering
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          sed -E "s#(^[[:space:]]*image: ).*#\1${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}#" \
+            ./msa/ordering/k8s/depl_svc.yml | kubectl apply -f -
+
+          kubectl rollout status deployment/ordering-depl -n soldesk --timeout=300s
 
 
       # Product 빌드
@@ -153,8 +175,8 @@ jobs:
         if: steps.changes.outputs.product == 'true'
         env:
           REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
-          REPOSITORY: product-service
-          IMAGE_TAG: latest
+          REPOSITORY: sales-mall-dev-product
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker build \
             -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
@@ -163,9 +185,15 @@ jobs:
 
       - name: deploy product
         if: steps.changes.outputs.product == 'true'
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: sales-mall-dev-product
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          kubectl apply -f ./msa/product/k8s/depl_svc.yml
-          kubectl rollout restart deployment product-depl -n soldesk
+          sed -E "s#(^[[:space:]]*image: ).*#\1${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}#" \
+            ./msa/product/k8s/depl_svc.yml | kubectl apply -f -
+
+          kubectl rollout status deployment/product-depl -n soldesk --timeout=300s
 
 
       # Frontend 빌드
@@ -173,8 +201,8 @@ jobs:
         if: steps.changes.outputs.frontend == 'true'
         env:
           REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
-          REPOSITORY: frontend-service
-          IMAGE_TAG: latest
+          REPOSITORY: sales-mall-dev-frontend
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           docker build \
             -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
@@ -183,6 +211,12 @@ jobs:
 
       - name: deploy frontend
         if: steps.changes.outputs.frontend == 'true'
+        env:
+          REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: sales-mall-dev-frontend
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          kubectl apply -f ./msa/frontend/k8s/depl_svc.yml
-          kubectl rollout restart deployment frontend-depl -n soldesk
+          sed -E "s#(^[[:space:]]*image: ).*#\1${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}#" \
+            ./msa/frontend/k8s/depl_svc.yml | kubectl apply -f -
+
+          kubectl rollout status deployment/frontend-depl -n soldesk --timeout=300s

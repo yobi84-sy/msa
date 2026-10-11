@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: member-container
-        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/member-service:latest
+        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-member:v1
         ports:
         - containerPort: 8080
         resources:
@@ -37,11 +37,31 @@ spec:
             secretKeyRef:
               name: my-app-secrets
               key: DB_HOST
+
         - name: DB_PW
           valueFrom:
             secretKeyRef:
               name: my-app-secrets
               key: DB_PW
+
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secrets
+              key: JWT_SECRET_KEY
+
+        - name: JWT_REFRESH_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secrets
+              key: JWT_REFRESH_SECRET_KEY
+
+        - name: ADMIN_BOOTSTRAP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: admin-bootstrap
+              key: ADMIN_BOOTSTRAP_PASSWORD
+
         # 컨테이너 상태 확인 
         readinessProbe:
           httpGet:

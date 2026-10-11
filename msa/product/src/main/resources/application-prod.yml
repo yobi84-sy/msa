@@ -18,7 +18,7 @@ spring:
     database-platform: org.hibernate.dialect.MySQL8Dialect
     generate-ddl: false
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     show_sql: true
 
 cloud:
@@ -29,4 +29,4 @@ cloud:
     region:
       static: ap-northeast-2
     s3:
-      bucket: aws-eks-frontend-image-021158485482-ap-northeast-2-an
+      bucket: ${S3_BUCKET}

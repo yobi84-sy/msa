@@ -1,0 +1,11 @@
+# ==========================================
+# Yobi V1 - Kubernetes Namespace
+# ==========================================
+
+apiVersion: v1
+kind: Namespace
+
+metadata:
+  name: soldesk
+  labels:
+    app.kubernetes.io/part-of: yobi-v1
