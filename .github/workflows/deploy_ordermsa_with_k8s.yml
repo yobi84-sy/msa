@@ -65,6 +65,7 @@ jobs:
         uses: dorny/paths-filter@v3
 
         with:
+          base: yobi-v1
           filters: |
             gateway:
               - 'msa/apigateway/**'

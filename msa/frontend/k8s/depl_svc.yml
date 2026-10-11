@@ -4,7 +4,6 @@ metadata:
   name: frontend-depl
   namespace: soldesk
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: frontend
@@ -19,6 +18,7 @@ spec:
         ports:
         - containerPort: 80
         resources:
+          # HPA CPU 사용률 계산을 위한 리소스 요청값
           requests:
             cpu: "50m"
             memory: "32Mi"
