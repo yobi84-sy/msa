@@ -17,7 +17,14 @@ spec:
       - name: frontend-container
         image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-frontend:v1
         ports:
-        - containerPort: 80 
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "32Mi"
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
 ---
 apiVersion: v1
 kind: Service
