@@ -1,0 +1,27 @@
+# [GitOps workload owner] all five services and HPAs, no Ingress/Secrets
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: yobi-v1-msa
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/yobi84-sy/msa.git
+    targetRevision: yobi-v1
+    path: msa
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: soldesk
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=false
+    - RespectIgnoreDifferences=true
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jqPathExpressions:
+    - .spec.replicas

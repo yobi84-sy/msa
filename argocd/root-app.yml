@@ -1,3 +1,4 @@
+# [ArgoCD App-of-Apps] manages exactly MSA and monitoring (no Terraform-owned resources)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -7,12 +8,14 @@ spec:
   project: default
   source:
     repoURL: https://github.com/yobi84-sy/msa.git
-    targetRevision: main
+    targetRevision: yobi-v1
     path: argocd/apps
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
   syncPolicy:
     automated:
-      prune: true
+      prune: false
       selfHeal: true
+    syncOptions:
+    - CreateNamespace=false

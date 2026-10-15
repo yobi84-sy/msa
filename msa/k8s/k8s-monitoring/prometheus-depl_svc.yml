@@ -1,3 +1,5 @@
+# [Prometheus] ConfigMap의 scrape 설정을 로딩하여 메트릭 시계열 저장
+# Container resources.requests는 스케줄링 최소 보장량; limits는 상한선
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,7 +20,7 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: prom/prometheus
+          image: prom/prometheus:v3.2.1
           args:
           # 아래 volumnMount를 통해 저장된 prometheus.yml 파일을 read
           # 이 파일을 기반으로 node-exporter에서 시스템 정보를 수집
@@ -32,8 +34,8 @@ spec:
               memory: "500Mi"
           # 컨테이너가 시작될떄 보장받아야 하는 최소 자원
             requests:
-              cpu: "0.5"
-              memory: "250Mi"
+              cpu: "0.1"
+              memory: "128Mi"
           volumeMounts:
             - name: config-volume
               mountPath: /etc/prometheus

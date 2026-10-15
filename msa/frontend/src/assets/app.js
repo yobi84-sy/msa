@@ -98,14 +98,21 @@ function getImageUrl(url) {
     return PLACEHOLDER_IMAGE;
   }
 
+  // 기존 S3 이미지 저장소 주소
   const s3Origin =
-  'https://sales-mall-dev-product-images-021158485482-ap-northeast-2.s3.ap-northeast-2.amazonaws.com';
+    'https://sales-mall-dev-product-images-021158485482-ap-northeast-2.s3.ap-northeast-2.amazonaws.com';
 
-  const cdnOrigin =
-  'https://d19w9wvlw0k2t8.cloudfront.net';
+  // Terraform ConfigMap에서 제공하는 CloudFront 주소
+  const cdnDomain =
+    window.YOBI_CONFIG && window.YOBI_CONFIG.cloudfrontDomain;
 
   if (url.startsWith(`${s3Origin}/products/`)) {
-    return cdnOrigin + url.slice(s3Origin.length);
+    if (!cdnDomain) {
+      console.error('[Yobi V1] CloudFront configuration missing');
+      return PLACEHOLDER_IMAGE;
+    }
+
+    return `https://${cdnDomain}${url.slice(s3Origin.length)}`;
   }
 
   return url;

@@ -1,20 +1,15 @@
-# monitoring-https.yml
+# [DNS-01 cert-manager] issuer matches Terraform-managed letsencrypt-prod
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: monitoring-sy84-store-tls
   namespace: monitoring
-
 spec:
   secretName: monitoring-sy84-store-tls
-
   duration: 2160h
   renewBefore: 360h
-
   issuerRef:
-    name: my-issuer
+    name: letsencrypt-prod
     kind: ClusterIssuer
-
   dnsNames:
-    - prometheus.sy84.store
-    - grafana.sy84.store
+  - grafana.sy84.store

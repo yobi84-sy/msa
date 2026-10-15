@@ -1,40 +1,64 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend-depl
   namespace: soldesk
+
 spec:
   selector:
     matchLabels:
       app: frontend
+
   template:
     metadata:
       labels:
         app: frontend
+
     spec:
       containers:
-      - name: frontend-container
-        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-frontend:v1
-        ports:
-        - containerPort: 80
-        resources:
-          # HPA CPU 사용률 계산을 위한 리소스 요청값
-          requests:
-            cpu: "50m"
-            memory: "32Mi"
-          limits:
-            cpu: "200m"
-            memory: "128Mi"
+        - name: frontend-container
+          image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-frontend:v1
+
+          ports:
+            - containerPort: 80
+
+          # CloudFront 설정 파일 연결
+          volumeMounts:
+            - name: frontend-runtime-config
+              mountPath: /usr/share/nginx/html/runtime
+              readOnly: true
+
+          resources:
+            # HPA CPU 사용률 계산을 위한 리소스 요청값
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+
+      # Pod 전체에서 사용하는 볼륨
+      volumes:
+        - name: frontend-runtime-config
+          configMap:
+            name: frontend-runtime-config
+            items:
+              - key: config.js
+                path: config.js
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend-service
   namespace: soldesk
+
 spec:
   type: ClusterIP
   ports:
-  - port: 80
-    targetPort: 80
+    - port: 80
+      targetPort: 80
   selector:
     app: frontend

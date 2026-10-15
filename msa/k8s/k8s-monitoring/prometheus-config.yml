@@ -4,19 +4,46 @@ metadata:
   name: prometheus-config
   namespace: monitoring
 data:
-# Prometheus가 node-exporter가 수집한 노드(서버)의 시스템 정보를 15초마다 데이터를 주기적으로 받아 저장하고 처리 => prometheus.yml로 저장 
-#  <노드 IP>:10250 : Prometheus가 k8s 노드를 자동 탐색할 때 사용하는 기본 주소(__address__라벨이 붙어있음). 이것을 :9100 으로 대체
+# Prometheus가 node-exporter가 수집한 노드(서버)의 시스템 정보를 주기적으로 받아 저장·처리
+# 기존 주석의 15초 수집 주기는 모니터링 부담을 줄이기 위해 30초로 변경됨
+# <노드 IP>:10250처럼 발견되는 기본 주소를 node-exporter의 :9100 포트로 치환
   prometheus.yml: |
     global:
-      scrape_interval: 15s
-
+      scrape_interval: 30s
     scrape_configs:
-      - job_name: 'node-exporter'
+      # [노드 메트릭] node-exporter Pod IP:9100 직접 스크레이프
+      # hostNetwork 없이 모니터링 Pod 통신만 사용; 노드 보안그룹 9100 오픈 불필요
+      - job_name: node-exporter
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [monitoring]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: node-exporter
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: '9100'
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+      # [컨테이너 메트릭] cAdvisor 지표로 Pod/컨테이너 CPU·메모리 대시보드를 구성
+      # kubelet에 외부 직접 접근하지 않고 Kubernetes API Server 프록시 경유
+      # ServiceAccount 토큰과 클러스터 CA를 사용해 TLS 인증 (RBAC의 nodes/proxy 필요)
+      # kube-state-metrics는 추가하지 않음: 이 구성만으로 모든 상태 지표가 제공되지는 않음
+      - job_name: kubernetes-cadvisor
+        scheme: https
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         kubernetes_sd_configs:
           - role: node
         relabel_configs:
-          - source_labels: [__address__]
-            regex: '(.*):10250'
-            replacement: '${1}:9100'
-            target_label: __address__
-
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)

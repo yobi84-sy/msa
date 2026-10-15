@@ -1,0 +1,18 @@
+# [Grafana datasource provisioning] Grafana 기동 시 Prometheus URL을 자동 등록
+# 사용자가 UI에서 매번 데이터 소스를 추가하지 않아도 대시보드가 작동하도록 함
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+data:
+  prometheus.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: yobi-prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-service.monitoring.svc.cluster.local:9090
+        isDefault: true
+        editable: false

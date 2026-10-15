@@ -1,0 +1,33 @@
+# [Grafana dashboard provisioning] Yobi V1 CPU/메모리 대시보드를 ConfigMap으로 제공
+# 실제 숫자가 표시되는지 여부는 Prometheus Target UP 상태 및 메트릭 존재에 따라 달라짐
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard
+  namespace: monitoring
+data:
+  dashboard.yaml: "apiVersion: 1\nproviders:\n  - name: Yobi V1\n    orgId: 1\n  \
+    \  folder: Yobi V1\n    type: file\n    disableDeletion: false\n    options:\n\
+    \      path: /var/lib/grafana/dashboards\n"
+  yobi-v1.json: '{"uid": "yobi-v1-observability", "title": "Yobi V1 - Node & MSA",
+    "tags": ["yobi-v1"], "schemaVersion": 39, "version": 1, "refresh": "30s", "time":
+    {"from": "now-1h", "to": "now"}, "panels": [{"id": 1, "title": "Node CPU utilization
+    (%)", "type": "timeseries", "gridPos": {"x": 0, "y": 0, "w": 12, "h": 9}, "datasource":
+    {"type": "prometheus", "uid": "yobi-prometheus"}, "targets": [{"expr": "100 *
+    (1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "legendFormat":
+    "{{pod}} / {{instance}}", "refId": "A"}], "fieldConfig": {"defaults": {"unit":
+    "percent"}, "overrides": []}}, {"id": 2, "title": "Node memory used (%)", "type":
+    "timeseries", "gridPos": {"x": 12, "y": 0, "w": 12, "h": 9}, "datasource": {"type":
+    "prometheus", "uid": "yobi-prometheus"}, "targets": [{"expr": "100 * (1 - node_memory_MemAvailable_bytes
+    / node_memory_MemTotal_bytes)", "legendFormat": "{{pod}} / {{instance}}", "refId":
+    "A"}], "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}}, {"id":
+    3, "title": "MSA container CPU (cores)", "type": "timeseries", "gridPos": {"x":
+    0, "y": 9, "w": 12, "h": 9}, "datasource": {"type": "prometheus", "uid": "yobi-prometheus"},
+    "targets": [{"expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"soldesk\",container!=\"\",image!=\"\"}[5m]))",
+    "legendFormat": "{{pod}} / {{instance}}", "refId": "A"}], "fieldConfig": {"defaults":
+    {"unit": "short"}, "overrides": []}}, {"id": 4, "title": "MSA container memory
+    (MiB)", "type": "timeseries", "gridPos": {"x": 12, "y": 9, "w": 12, "h": 9}, "datasource":
+    {"type": "prometheus", "uid": "yobi-prometheus"}, "targets": [{"expr": "sum by
+    (pod) (container_memory_working_set_bytes{namespace=\"soldesk\",container!=\"\",image!=\"\"})
+    / 1024 / 1024", "legendFormat": "{{pod}} / {{instance}}", "refId": "A"}], "fieldConfig":
+    {"defaults": {"unit": "short"}, "overrides": []}}]}'

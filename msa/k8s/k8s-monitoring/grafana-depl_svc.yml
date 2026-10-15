@@ -1,3 +1,5 @@
+# [Grafana] Prometheus 데이터 소스와 Dashboard ConfigMap을 읽기 전용 마운트
+# 초기 Grafana 웹 로그인/노출 정책은 실제 AWS 통합 테스트 전 별도로 확인 필요
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,11 +15,47 @@ spec:
       labels:
         app: grafana
     spec:
+      volumes:
+        - name: dashboards
+          configMap:
+            name: grafana-dashboard
+            items:
+              - key: yobi-v1.json
+                path: yobi-v1.json
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard
+            items:
+              - key: dashboard.yaml
+                path: dashboard.yaml
+        - name: datasources
+          configMap:
+            name: grafana-datasources
       containers:
         - name: grafana
-          image: grafana/grafana
+          image: grafana/grafana:11.6.0
+          # 관리자 계정 비밀번호는 Git/YAML에 하드코딩하지 않고 배포 시 생성한 Secret 사용.
+          # 관리자 계정은 admin이며 첫 로그인 이후 변경 권장.
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-admin
+                  key: password
           ports:
             - containerPort: 3000
+          volumeMounts:
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
           resources:
           # 컨테이너가 사용할수 있는 리소스의 최대치
             limits:
@@ -25,7 +63,7 @@ spec:
               memory: "500Mi"
           # 컨테이너가 시작될떄 보장받아야 하는 최소 자원
             requests:
-              cpu: "0.5"
+              cpu: "0.1"
               memory: "250Mi"
 ---
 apiVersion: v1

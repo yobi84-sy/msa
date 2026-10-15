@@ -1,0 +1,202 @@
+# [Yobi V1] Infra already exists before first push; branch yobi-v1 only.
+# First push with this workflow changed -> build all five services.
+# Later pushes -> only changed services. GitOps tag commit does not trigger rebuilding.
+name: Yobi V1 - Build ECR and Update GitOps Manifests
+
+on:
+  push:
+    branches: [yobi-v1]
+    paths:
+      - '.github/workflows/deploy-yobi-gitops.yml'
+      - 'msa/apigateway/src/**'
+      - 'msa/apigateway/Dockerfile'
+      - 'msa/apigateway/build.gradle'
+      - 'msa/apigateway/settings.gradle'
+      - 'msa/apigateway/gradle/**'
+      - 'msa/apigateway/gradlew'
+      - 'msa/apigateway/gradlew.bat'
+      - 'msa/apigateway/.dockerignore'
+      - 'msa/member/src/**'
+      - 'msa/member/Dockerfile'
+      - 'msa/member/build.gradle'
+      - 'msa/member/settings.gradle'
+      - 'msa/member/gradle/**'
+      - 'msa/member/gradlew'
+      - 'msa/member/gradlew.bat'
+      - 'msa/member/.dockerignore'
+      - 'msa/product/src/**'
+      - 'msa/product/Dockerfile'
+      - 'msa/product/build.gradle'
+      - 'msa/product/settings.gradle'
+      - 'msa/product/gradle/**'
+      - 'msa/product/gradlew'
+      - 'msa/product/gradlew.bat'
+      - 'msa/product/.dockerignore'
+      - 'msa/ordering/src/**'
+      - 'msa/ordering/Dockerfile'
+      - 'msa/ordering/build.gradle'
+      - 'msa/ordering/settings.gradle'
+      - 'msa/ordering/gradle/**'
+      - 'msa/ordering/gradlew'
+      - 'msa/ordering/gradlew.bat'
+      - 'msa/ordering/.dockerignore'
+      - 'msa/frontend/src/**'
+      - 'msa/frontend/nginx/**'
+      - 'msa/frontend/Dockerfile'
+  # Optional for repositories where this workflow exists on the default branch.
+  workflow_dispatch:
+    inputs:
+      service:
+        type: choice
+        required: true
+        default: all
+        options: [all, apigateway, member, product, ordering, frontend]
+
+concurrency:
+  group: yobi-v1-gitops
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      services: ${{ steps.select.outputs.services }}
+    steps:
+      - name: Checkout with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select services (first push / workflow update = all)
+        id: select
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          MANUAL_SERVICE: ${{ inputs.service }}
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          all='["apigateway","member","product","ordering","frontend"]'
+          if [[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" != refs/heads/yobi-v1 ]]; then
+            echo "workflow_dispatch must run on yobi-v1 (actual: $GITHUB_REF)" >&2
+            exit 1
+          fi
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            if [[ "$MANUAL_SERVICE" == all ]]; then
+              selected="$all"
+            else
+              selected=$(jq -nc --arg s "$MANUAL_SERVICE" '[ $s ]')
+            fi
+          elif [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
+            selected="$all"
+          else
+            mapfile -t changed < <(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA")
+            if printf '%s\n' "${changed[@]}" | grep -qx '.github/workflows/deploy-yobi-gitops.yml'; then
+              selected="$all"
+            else
+              services=()
+              for service in apigateway member product ordering frontend; do
+                if printf '%s\n' "${changed[@]}" | grep -qE "^msa/${service}/(src/|nginx/|gradle/|Dockerfile$|build.gradle$|settings.gradle$|gradlew(\.bat)?$|\.dockerignore$)"; then
+                  services+=("$service")
+                fi
+              done
+              selected=$(printf '%s\n' "${services[@]}" | jq -Rsc '[split("\n")[] | select(length > 0)]')
+            fi
+          fi
+          echo "services=$selected" >> "$GITHUB_OUTPUT"
+          echo "Selected services: $selected"
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect.outputs.services) }}
+    env:
+      AWS_REGION: ap-northeast-2
+      REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+      REPOSITORY_PREFIX: sales-mall-dev
+      IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::021158485482:role/sales-mall-dev-github-actions-role
+          aws-region: ap-northeast-2
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push only selected service
+        shell: bash
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          image="${REGISTRY}/${REPOSITORY_PREFIX}-${SERVICE}:${IMAGE_TAG}"
+          test -f "msa/${SERVICE}/Dockerfile" || { echo "Missing Dockerfile for $SERVICE" >&2; exit 1; }
+          docker build -t "$image" -f "msa/${SERVICE}/Dockerfile" "msa/${SERVICE}"
+          docker push "$image"
+
+  update-manifests:
+    needs: [detect, build]
+    if: needs.detect.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      REGISTRY: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com
+      REPOSITORY_PREFIX: sales-mall-dev
+      IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      SELECTED_SERVICES: ${{ needs.detect.outputs.services }}
+    steps:
+      - name: Checkout GitOps branch for manifest update
+        uses: actions/checkout@v4
+        with:
+          ref: yobi-v1
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Update image tag in the five-service manifest tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r service; do
+            file="msa/${service}/k8s/depl_svc.yml"
+            [[ -f "$file" ]] || { echo "Missing: $file" >&2; exit 1; }
+            image="${REGISTRY}/${REPOSITORY_PREFIX}-${service}:${IMAGE_TAG}"
+            count=$(grep -Ec '^[[:space:]]*image:[[:space:]]*' "$file" || true)
+            [[ "$count" -eq 1 ]] || { echo "Expected one image in $file; got $count" >&2; exit 1; }
+            sed -i -E "s#^([[:space:]]*image:[[:space:]]*).*#\1${image}#" "$file"
+          done < <(jq -r '.[]' <<< "$SELECTED_SERVICES")
+          git diff --check
+      - name: Commit new GitOps image tags (no kubectl)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          while IFS= read -r service; do
+            git add "msa/${service}/k8s/depl_svc.yml"
+          done < <(jq -r '.[]' <<< "$SELECTED_SERVICES")
+          if git diff --cached --quiet; then
+            echo 'No GitOps tag changes.'
+            exit 0
+          fi
+          git commit -m 'ci(gitops): update ECR image tags [skip ci]'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:yobi-v1; then
+              echo 'ArgoCD will sync the new GitOps commit.'
+              exit 0
+            fi
+            git fetch origin yobi-v1
+            git rebase origin/yobi-v1 || { git rebase --abort || true; exit 1; }
+            sleep "$attempt"
+          done
+          echo 'Unable to push manifest tags after three attempts.' >&2
+          exit 1

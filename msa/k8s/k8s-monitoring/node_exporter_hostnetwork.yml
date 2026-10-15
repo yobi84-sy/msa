@@ -1,3 +1,5 @@
+# [Node Exporter] 각 EKS 노드의 호스트 CPU/메모리 수집을 위한 exporter
+# Pod IP로 수집 (hostNetwork 사용하지 않음): Pod IP 9100으로 노드 메트릭 수집
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -12,8 +14,6 @@ spec:
       labels:
         app: node-exporter
     spec:
-      hostNetwork: true
-      hostPID: true
       containers:
         - name: node-exporter
           image: prom/node-exporter

@@ -9,7 +9,10 @@ rules:
 # apps그룹은 depl, svc 등
   - apiGroups: [""]
   # 노드에 대한 권한
-    resources: ["nodes", "nodes/metrics"]
+    # [Yobi V1 추가] nodes/proxy: Kubernetes API를 통해 kubelet cAdvisor 지표 접근
+    # pods/services/endpoints: 모니터링 대상 발견을 위한 읽기 권한
+    # 기존 역할은 유지하고 필요한 조회 권한만 확장 (수정 권한 없음)
+    resources: ["nodes", "nodes/metrics", "nodes/proxy", "pods", "services", "endpoints"]
   # 조회권한 : kubectl get node, kubectl get nodes, kubectl get node --watch
     verbs: ["get", "list", "watch"]
 ---

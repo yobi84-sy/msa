@@ -1,0 +1,15 @@
+# [Kustomize] ArgoCD가 Git의 MSA Deployment 및 HPA를 읽는 진입점
+# 관리 범위 외의 Terraform 생성 Ingress/인증서/인프라 리소스를 여기 추가하지 말 것
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - apigateway/k8s/depl_svc.yml
+  - member/k8s/depl_svc.yml
+  - product/k8s/depl_svc.yml
+  - ordering/k8s/depl_svc.yml
+  - frontend/k8s/depl_svc.yml
+  - k8s/k8s-hpa/apigateway-hpa.yml
+  - k8s/k8s-hpa/member-hpa.yml
+  - k8s/k8s-hpa/product-hpa.yml
+  - k8s/k8s-hpa/ordering-hpa.yml
+  - k8s/k8s-hpa/frontend-hpa.yml

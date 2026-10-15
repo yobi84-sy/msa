@@ -1,3 +1,4 @@
+# [Monitoring owner] Grafana, Prometheus, node-exporter, certificate
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -7,14 +8,14 @@ spec:
   project: default
   source:
     repoURL: https://github.com/yobi84-sy/msa.git
-    targetRevision: main
+    targetRevision: yobi-v1
     path: msa/k8s/k8s-monitoring
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
   syncPolicy:
     automated:
-      prune: true
+      prune: false
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
+    - CreateNamespace=true

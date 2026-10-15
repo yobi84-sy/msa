@@ -1,0 +1,5 @@
+# [Monitoring namespace] 애플리케이션 soldesk와 관측 리소스 monitoring을 분리
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring

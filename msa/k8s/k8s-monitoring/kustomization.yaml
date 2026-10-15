@@ -1,0 +1,15 @@
+# [Monitoring 설치 목록] kubectl apply -k msa/k8s/k8s-monitoring 으로 일괄 구성
+# Namespace/RBAC/Prometheus/Exporter/Grafana/HTTPS 리소스 순서와 참조 이름 점검
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yml
+  - prometheus-rbac.yml
+  - prometheus-config.yml
+  - prometheus-depl_svc.yml
+  - node_exporter_hostnetwork.yml
+  - grafana-datasource.yml
+  - grafana-dashboard.yml
+  - grafana-depl_svc.yml
+  - monitoring-https.yml
+  - monitoring-Ingress.yml
