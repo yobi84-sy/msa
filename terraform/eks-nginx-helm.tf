@@ -21,6 +21,9 @@ resource "helm_release" "nginx_ingress" {
   values = [
     yamlencode({
       controller = {
+        reportIngressStatus = {
+          enable = true
+        }
         replicaCount          = 2
         enableCustomResources = false
 

@@ -22,6 +22,8 @@ provider "helm" {
 # =========================================================
 
 resource "helm_release" "alb_controller" {
+  disable_openapi_validation = true
+
   name       = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
@@ -53,6 +55,10 @@ resource "helm_release" "alb_controller" {
 
   depends_on = [
     aws_iam_role_policy_attachment.alb_controller,
-    aws_eks_node_group.main
+    aws_eks_node_group.main,
+    aws_eks_addon.vpc_cni,
+    aws_eks_addon.coredns,
+    aws_eks_addon.kube_proxy,
+    aws_eks_addon.metrics_server
   ]
 }

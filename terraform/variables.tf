@@ -60,3 +60,22 @@ variable "availability_zones" {
     error_message = "서로 다른 AZ를 2개 선택해야 합니다. 예: [\"ap-northeast-2a\", \"ap-northeast-2c\"]"
   }
 }
+
+# NLB Route 53 DNS 연결 활성화 여부
+# Destroy 전 DNS 연결을 안전하게 해제하는 용도
+variable "enable_nlb_dns" {
+  description = "Enable Route 53 alias to the NGINX NLB"
+  type        = bool
+  default     = true
+}
+
+# Let's Encrypt 인증서 발급 및 만료 알림용 이메일
+variable "acme_email" {
+  description = "Email address for Let's Encrypt ACME account"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.acme_email))
+    error_message = "유효한 이메일 주소를 입력해야 합니다."
+  }
+}

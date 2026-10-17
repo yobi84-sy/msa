@@ -1,7 +1,9 @@
+# V3 paired workflow: yobi-v1 is the default branch.
 # [Yobi V1] Infra already exists before first push; branch yobi-v1 only.
 # First push with this workflow changed -> build all five services.
 # Later pushes -> only changed services. GitOps tag commit does not trigger rebuilding.
 name: Yobi V1 - Build ECR and Update GitOps Manifests
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Yobi V3 request {0}', inputs.request_id) || format('Yobi push {0}', github.sha) }}
 
 on:
   push:
@@ -46,6 +48,14 @@ on:
   # Optional for repositories where this workflow exists on the default branch.
   workflow_dispatch:
     inputs:
+      request_id:
+        description: 'Unique request ID supplied by V3; use 32 lowercase hex characters'
+        type: string
+        required: true
+      expected_sha:
+        description: 'Exact 40-character source SHA expected by this request'
+        type: string
+        required: true
       service:
         type: choice
         required: true
@@ -75,6 +85,8 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
           MANUAL_SERVICE: ${{ inputs.service }}
           GITHUB_REF: ${{ github.ref }}
         run: |
@@ -85,6 +97,8 @@ jobs:
             exit 1
           fi
           if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            [[ "$REQUEST_ID" =~ ^[0-9a-f]{32}$ ]] || { echo 'Invalid request ID' >&2; exit 1; }
+            [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ && "$EXPECTED_SHA" == "$AFTER_SHA" ]] || { echo 'Source changed before dispatch; refusing build' >&2; exit 1; }
             if [[ "$MANUAL_SERVICE" == all ]]; then
               selected="$all"
             else
@@ -159,7 +173,7 @@ jobs:
       - name: Checkout GitOps branch for manifest update
         uses: actions/checkout@v4
         with:
-          ref: yobi-v1
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: true
       - name: Update image tag in the five-service manifest tree
@@ -189,14 +203,9 @@ jobs:
             exit 0
           fi
           git commit -m 'ci(gitops): update ECR image tags [skip ci]'
-          for attempt in 1 2 3; do
-            if git push origin HEAD:yobi-v1; then
-              echo 'ArgoCD will sync the new GitOps commit.'
-              exit 0
-            fi
-            git fetch origin yobi-v1
-            git rebase origin/yobi-v1 || { git rebase --abort || true; exit 1; }
-            sleep "$attempt"
-          done
-          echo 'Unable to push manifest tags after three attempts.' >&2
-          exit 1
+          # Do not rebase old image tags over newer source/GitOps commits.
+          # A concurrent branch change must fail visibly, rather than deploy stale images.
+          git fetch origin yobi-v1
+          [[ "$(git rev-parse origin/yobi-v1)" == "$GITHUB_SHA" ]] || { echo 'Branch moved during build; refusing stale manifest publish' >&2; exit 1; }
+          git push origin HEAD:refs/heads/yobi-v1
+          echo 'ArgoCD will sync this verified GitOps commit.'

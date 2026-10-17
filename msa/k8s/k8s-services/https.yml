@@ -19,29 +19,3 @@ spec:
       - http01:
           ingress:
             ingressClassName: nginx
-
----
-
-# ==========================================
-# server.sy84.store - HTTPS Certificate
-# ==========================================
-# 3.ClusterIssue를 사용하여 Certificate 리소스 생성 : Certificate리소스 생성시에 인증서 발급
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: server-sy84-store-tls
-  namespace: soldesk
-spec:
-  secretName: server-sy84-store-tls
-  duration: 2160h #90day
-  renewBefore: 360h #before 15day
-
-  issuerRef:
-    name: my-issuer
-    kind: ClusterIssuer
-
-  commonName: server.sy84.store
-
-  dnsNames:
-    - server.sy84.store
-

@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: {{ required "ACME email is required" .Values.acme.email | quote }}
+    server: {{ .Values.acme.server | quote }}
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - selector:
+          dnsZones:
+            - "sy84.store"
+        dns01:
+          route53:
+            region: {{ .Values.route53.region | quote }}
+            hostedZoneID: {{ required "Route53 hosted zone ID is required" .Values.route53.hostedZoneID | quote }}

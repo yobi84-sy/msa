@@ -1,0 +1,13 @@
+acme:
+  email: ""
+  server: "https://acme-v02.api.letsencrypt.org/directory"
+
+route53:
+  region: "ap-northeast-2"
+  hostedZoneID: ""
+
+certificate:
+  namespace: "soldesk"
+  secretName: "server-sy84-store-tls"
+  dnsNames:
+    - "*.sy84.store"

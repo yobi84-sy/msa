@@ -20,9 +20,16 @@ resource "aws_eks_node_group" "main" {
 
   # Node Group 크기
   scaling_config {
-    desired_size = 2
-    min_size     = 1
-    max_size     = 5
+    desired_size = 3
+    min_size     = 2
+    max_size     = 6
+  }
+
+  # Cluster Autoscaler가 변경한 Node 수 유지
+  lifecycle {
+    ignore_changes = [
+      scaling_config[0].desired_size
+    ]
   }
 
   # Node 업데이트 설정
@@ -36,13 +43,15 @@ resource "aws_eks_node_group" "main" {
     project     = var.project_name
   }
 
-  # IAM 정책 연결 후 Node Group 생성
+  # IAM 정책 및 NAT 라우팅 준비 후 Worker Node 생성
+  # Destroy 시 Worker Node 제거 전 NAT 경로 유지
   depends_on = [
     aws_iam_role_policy_attachment.eks_worker,
     aws_iam_role_policy_attachment.eks_ecr,
-    aws_iam_role_policy_attachment.eks_cni
+    aws_iam_role_policy_attachment.eks_cni,
+    aws_route.private_nat,
+    aws_route_table_association.private
   ]
-
 
   tags = {
     Name = "${local.name_prefix}-nodegroup"
