@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: apigateway-container
-        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-apigateway:12923fe41a13ceefc908b2ab44ec4b3f60a62996-39137464044-1
+        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-apigateway:6508b0d8a9ad97505be160522a40c6108ddce9e1-39138395458-1
         ports:
         - containerPort: 8080
 
