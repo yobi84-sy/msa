@@ -44,6 +44,22 @@ class OrdersystemApplicationTests {
   assertThat(products.findById(p.getId()).orElseThrow().getName()).isEqualTo("Legacy");
   assertThat(products.findById(p.getId()).orElseThrow().getGender()).isNull();
  }
+ @Test void visibilityIsAdminOnlyAndHiddenProductsStayManageable()throws Exception{
+  var p=products.save(Product.builder().sku("HIDDEN01").name("Sold out").category("신발").price(100).stockQuantity(0).memberId(1L).build());
+  mvc.perform(get("/product/list")).andExpect(jsonPath("$.length()").value(1));
+  mvc.perform(get("/product/admin/list")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/product/admin/list").header("Authorization",token("USER"))).andExpect(status().isForbidden());
+  mvc.perform(put("/product/"+p.getId()+"/sold-out-visibility").header("Authorization",token("USER")).contentType("application/json").content("{\"hideWhenSoldOut\":true}")).andExpect(status().isForbidden());
+  mvc.perform(put("/product/"+p.getId()+"/visibility").header("Authorization",token("ADMIN")).contentType("application/json").content("{\"hideWhenSoldOut\":true}")).andExpect(status().isNotFound());
+  assertThat(products.findById(p.getId()).orElseThrow().getHideWhenSoldOut()).isNull();
+  mvc.perform(put("/product/"+p.getId()+"/sold-out-visibility").header("Authorization",token("ADMIN")).contentType("application/json").content("{\"hideWhenSoldOut\":true}")).andExpect(status().isOk());
+  mvc.perform(get("/product/list")).andExpect(jsonPath("$.length()").value(0));
+  mvc.perform(get("/product/"+p.getId())).andExpect(status().isNotFound());
+  mvc.perform(get("/product/admin/list").header("Authorization",token("ADMIN"))).andExpect(jsonPath("$.length()").value(1));
+  mvc.perform(post("/product/"+p.getId()+"/restock").header("Authorization",token("ADMIN")).contentType("application/json").content("{\"quantity\":2}")).andExpect(status().isOk());
+  mvc.perform(get("/product/list")).andExpect(jsonPath("$.length()").value(1));
+  mvc.perform(put("/product/"+p.getId()+"/sold-out-visibility").header("Authorization",token("ADMIN")).contentType("application/json").content("{\"hideWhenSoldOut\":null}")).andExpect(status().isBadRequest());
+ }
  @Test void acceptsUnisexAndAdditionalSportsWithoutChangingCatalogRules()throws Exception{
   mvc.perform(multipart("/product/create").header("Authorization",token("ADMIN")).param("sku","UNISEX01").param("name","Shared product").param("category","용품").param("gender","UNISEX").param("sportStyle","스포츠웨어").param("price","100").param("stockQuantity","0").param("imageUrl","https://fixture.example/image.png")).andExpect(status().isCreated());
   var p=products.findAll().get(0);

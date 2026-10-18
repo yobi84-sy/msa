@@ -23,7 +23,7 @@ public class JwtAuthFilter implements GlobalFilter,Ordered {
    Claims c=Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(auth.substring(7)).getBody();
    String role=c.get("role",String.class);long id=Long.parseLong(c.getSubject());
    if(id<=0||!("USER".equals(role)||"ADMIN".equals(role)))throw new IllegalArgumentException();
-   if(path.startsWith("/product-service/product/")&&!HttpMethod.GET.equals(method)&&!"ADMIN".equals(role)){
+   if(path.startsWith("/product-service/product/")&&(!HttpMethod.GET.equals(method)||path.equals("/product-service/product/admin/list"))&&!"ADMIN".equals(role)){
     clean.getResponse().setStatusCode(HttpStatus.FORBIDDEN);return clean.getResponse().setComplete();
    }
    return chain.filter(clean.mutate().request(b->b.headers(h->{h.set("X-User-Id",Long.toString(id));h.set("X-User-Role",role);})).build());

@@ -19,7 +19,7 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
    String role=claims.get("role",String.class);long id=Long.parseLong(claims.getSubject());
    if(id<=0 || !("USER".equals(role)||"ADMIN".equals(role)))throw new IllegalArgumentException();
    request.setAttribute("authenticatedMemberId",id);request.setAttribute("authenticatedRole",role);
-   if(!"GET".equals(request.getMethod()) && !"ADMIN".equals(role)){response.sendError(403,"관리자 권한이 필요합니다.");return;}
+   if((!"GET".equals(request.getMethod()) || path.equals("/product/admin/list")) && !"ADMIN".equals(role)){response.sendError(403,"관리자 권한이 필요합니다.");return;}
   } catch(JwtException|IllegalArgumentException e){response.sendError(401,"로그인이 필요합니다.");return;}
   chain.doFilter(request,response);
  }
