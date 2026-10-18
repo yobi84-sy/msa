@@ -1,0 +1,527 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "ServiceAccount",
+      "metadata": {
+        "name": "yobi-alertmanager",
+        "namespace": "monitoring",
+        "annotations": {
+          "eks.amazonaws.com/role-arn": "arn:aws:iam::021158485482:role/sales-mall-dev-alertmanager-sns"
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ServiceAccount",
+      "metadata": {
+        "name": "order-notifications",
+        "namespace": "soldesk",
+        "annotations": {
+          "eks.amazonaws.com/role-arn": "arn:aws:iam::021158485482:role/sales-mall-dev-ordering-sns"
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "order-notifications",
+        "namespace": "soldesk"
+      },
+      "data": {
+        "ORDER_ALERTS_ENABLED": "true",
+        "ORDER_ALERT_EMAIL_TOPIC_ARN": "arn:aws:sns:ap-northeast-2:021158485482:sales-mall-dev-orders-email",
+        "ORDER_ALERT_SMS_TOPIC_ARN": "arn:aws:sns:ap-northeast-2:021158485482:sales-mall-dev-orders-sms",
+        "ORDER_ALERT_SMS_DAILY_LIMIT": "10"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ServiceAccount",
+      "metadata": {
+        "name": "yobi-kube-state",
+        "namespace": "monitoring"
+      }
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRole",
+      "metadata": {
+        "name": "yobi-kube-state"
+      },
+      "rules": [
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "nodes",
+            "pods"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "apps"
+          ],
+          "resources": [
+            "deployments",
+            "replicasets",
+            "statefulsets",
+            "daemonsets"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "autoscaling"
+          ],
+          "resources": [
+            "horizontalpodautoscalers"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "apiextensions.k8s.io"
+          ],
+          "resources": [
+            "customresourcedefinitions"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "argoproj.io"
+          ],
+          "resources": [
+            "applications"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        }
+      ]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRoleBinding",
+      "metadata": {
+        "name": "yobi-kube-state"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "ClusterRole",
+        "name": "yobi-kube-state"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "yobi-kube-state",
+          "namespace": "monitoring"
+        }
+      ]
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "yobi-kube-state-config",
+        "namespace": "monitoring"
+      },
+      "data": {
+        "custom.yml": "{\"kind\": \"CustomResourceStateMetrics\", \"spec\": {\"resources\": [{\"groupVersionKind\": {\"group\": \"argoproj.io\", \"version\": \"v1alpha1\", \"kind\": \"Application\"}, \"labelsFromPath\": {\"name\": [\"metadata\", \"name\"]}, \"metrics\": [{\"name\": \"application_info\", \"help\": \"Argo application health and sync state\", \"each\": {\"type\": \"Info\", \"info\": {\"labelsFromPath\": {\"health\": [\"status\", \"health\", \"status\"], \"sync\": [\"status\", \"sync\", \"status\"]}}}}]}]}}"
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "yobi-kube-state",
+        "namespace": "monitoring"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "yobi-kube-state"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "yobi-kube-state"
+            },
+            "annotations": {
+              "yobi.dev/notification-config-sha256": "a2195383eedca1d7c6077354cb96d82f6ca1b81228a8e416088aa24103119aba"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "yobi-kube-state",
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 65534,
+              "fsGroup": 65534
+            },
+            "containers": [
+              {
+                "name": "yobi-kube-state",
+                "image": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0",
+                "args": [
+                  "--resources=nodes,pods,deployments,replicasets,statefulsets,daemonsets,horizontalpodautoscalers",
+                  "--metric-labels-allowlist=nodes=[eks.amazonaws.com/nodegroup]",
+                  "--custom-resource-state-config-file=/config/custom.yml"
+                ],
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "25m",
+                    "memory": "48Mi"
+                  },
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "192Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/metrics",
+                    "port": 8080
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10
+                },
+                "volumeMounts": [
+                  {
+                    "name": "config",
+                    "mountPath": "/config",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "config",
+                "configMap": {
+                  "name": "yobi-kube-state-config"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "yobi-kube-state",
+        "namespace": "monitoring"
+      },
+      "spec": {
+        "selector": {
+          "app": "yobi-kube-state"
+        },
+        "ports": [
+          {
+            "port": 8080,
+            "targetPort": 8080
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "yobi-blackbox",
+        "namespace": "monitoring"
+      },
+      "data": {
+        "blackbox.yml": "{\"modules\": {\"https_2xx\": {\"prober\": \"http\", \"timeout\": \"10s\", \"http\": {\"method\": \"GET\", \"valid_status_codes\": [200], \"fail_if_not_ssl\": true, \"preferred_ip_protocol\": \"ip4\"}}}}"
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "yobi-blackbox",
+        "namespace": "monitoring"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "yobi-blackbox"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "yobi-blackbox"
+            },
+            "annotations": {
+              "yobi.dev/notification-config-sha256": "fb04f97be351ac7cb94fce1eb156736f94bf675c289f46bd906e2c46fb29543c"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "default",
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 65534,
+              "fsGroup": 65534
+            },
+            "containers": [
+              {
+                "name": "yobi-blackbox",
+                "image": "prom/blackbox-exporter:v0.26.0",
+                "args": [
+                  "--config.file=/config/blackbox.yml"
+                ],
+                "ports": [
+                  {
+                    "containerPort": 9115
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "25m",
+                    "memory": "48Mi"
+                  },
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "192Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/metrics",
+                    "port": 9115
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10
+                },
+                "volumeMounts": [
+                  {
+                    "name": "config",
+                    "mountPath": "/config",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "config",
+                "configMap": {
+                  "name": "yobi-blackbox"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "yobi-blackbox",
+        "namespace": "monitoring"
+      },
+      "spec": {
+        "selector": {
+          "app": "yobi-blackbox"
+        },
+        "ports": [
+          {
+            "port": 9115,
+            "targetPort": 9115
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "yobi-alertmanager",
+        "namespace": "monitoring"
+      },
+      "data": {
+        "alertmanager.yml": "{\"global\": {\"resolve_timeout\": \"5m\"}, \"route\": {\"receiver\": \"sns-email\", \"group_by\": [\"alertname\", \"namespace\", \"service\"], \"group_wait\": \"30s\", \"group_interval\": \"5m\", \"repeat_interval\": \"30m\"}, \"receivers\": [{\"name\": \"sns-email\", \"sns_configs\": [{\"topic_arn\": \"arn:aws:sns:ap-northeast-2:021158485482:sales-mall-dev-alerts\", \"sigv4\": {\"region\": \"ap-northeast-2\"}, \"send_resolved\": true, \"message\": \"{{ range .Alerts }}[{{ .Status }}] {{ .Labels.alertname }}: {{ .Annotations.summary }}\\n{{ end }}\"}]}]}"
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "yobi-alertmanager",
+        "namespace": "monitoring"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "yobi-alertmanager"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "yobi-alertmanager"
+            },
+            "annotations": {
+              "yobi.dev/notification-config-sha256": "a39cfc62cdc088032f2ac173c7160a58c4eb1c6cdce47b107f23b25251a164ab"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "yobi-alertmanager",
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 65534,
+              "fsGroup": 65534
+            },
+            "containers": [
+              {
+                "name": "yobi-alertmanager",
+                "image": "prom/alertmanager:v0.28.1",
+                "args": [
+                  "--config.file=/config/alertmanager.yml",
+                  "--storage.path=/data",
+                  "--cluster.listen-address="
+                ],
+                "ports": [
+                  {
+                    "containerPort": 9093
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "25m",
+                    "memory": "48Mi"
+                  },
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "192Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/-/ready",
+                    "port": 9093
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10
+                },
+                "volumeMounts": [
+                  {
+                    "name": "config",
+                    "mountPath": "/config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "data",
+                    "mountPath": "/data"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "config",
+                "configMap": {
+                  "name": "yobi-alertmanager"
+                }
+              },
+              {
+                "name": "data",
+                "emptyDir": {}
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "yobi-alertmanager",
+        "namespace": "monitoring"
+      },
+      "spec": {
+        "selector": {
+          "app": "yobi-alertmanager"
+        },
+        "ports": [
+          {
+            "port": 9093,
+            "targetPort": 9093
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "yobi-alert-rules",
+        "namespace": "monitoring"
+      },
+      "data": {
+        "rules.yml": "{\"groups\": [{\"name\": \"yobi-operational\", \"rules\": [{\"alert\": \"StorefrontUnavailable\", \"expr\": \"probe_success{job=\\\"yobi-public-https\\\"} == 0\", \"for\": \"3m\", \"labels\": {\"severity\": \"critical\"}, \"annotations\": {\"summary\": \"Shopping site or product API unavailable\"}}, {\"alert\": \"StorefrontProbeMissing\", \"expr\": \"absent(probe_success{job=\\\"yobi-public-https\\\"})\", \"for\": \"3m\", \"labels\": {\"severity\": \"critical\"}, \"annotations\": {\"summary\": \"HTTPS monitoring has no samples\"}}, {\"alert\": \"AppHasNoReadyReplicas\", \"expr\": \"kube_deployment_status_replicas_available{namespace=\\\"soldesk\\\",deployment=~\\\"(apigateway|member|product|ordering|frontend)-depl\\\"} == 0\", \"for\": \"2m\", \"labels\": {\"severity\": \"critical\"}, \"annotations\": {\"summary\": \"Application has no ready replicas\"}}, {\"alert\": \"PodRestarting\", \"expr\": \"sum by(namespace,pod)(increase(kube_pod_container_status_restarts_total{namespace=~\\\"soldesk|monitoring\\\"}[10m])) >= 3\", \"for\": \"1m\", \"labels\": {\"severity\": \"warning\"}, \"annotations\": {\"summary\": \"Container restarted at least three times in ten minutes\"}}, {\"alert\": \"NodeNotReady\", \"expr\": \"kube_node_status_condition{condition=\\\"Ready\\\",status=\\\"true\\\"} == 0\", \"for\": \"3m\", \"labels\": {\"severity\": \"critical\"}, \"annotations\": {\"summary\": \"Kubernetes node is not Ready\"}}, {\"alert\": \"NodeMemoryHigh\", \"expr\": \"1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes > 0.9\", \"for\": \"5m\", \"labels\": {\"severity\": \"warning\"}, \"annotations\": {\"summary\": \"Node memory exceeds ninety percent\"}}, {\"alert\": \"ArgoSyncFailed\", \"expr\": \"kube_customresource_application_info{name=~\\\"msa-root|yobi-v1-msa|msa-monitoring\\\",sync!=\\\"Synced\\\"} == 1\", \"for\": \"5m\", \"labels\": {\"severity\": \"warning\"}, \"annotations\": {\"summary\": \"Argo application is not synced\"}}, {\"alert\": \"ArgoAppUnhealthy\", \"expr\": \"kube_customresource_application_info{name=~\\\"msa-root|yobi-v1-msa|msa-monitoring\\\",health=~\\\"Degraded|Missing|Unknown|Progressing\\\"} == 1\", \"for\": \"5m\", \"labels\": {\"severity\": \"warning\"}, \"annotations\": {\"summary\": \"Argo application is unhealthy\"}}, {\"alert\": \"HpaAtMaximum\", \"expr\": \"kube_horizontalpodautoscaler_status_desired_replicas{namespace=\\\"soldesk\\\"} >= kube_horizontalpodautoscaler_spec_max_replicas{namespace=\\\"soldesk\\\"}\", \"for\": \"5m\", \"labels\": {\"severity\": \"warning\"}, \"annotations\": {\"summary\": \"HPA has reached its configured maximum\"}}, {\"alert\": \"NodeCapacityAtMaximum\", \"expr\": \"count(kube_node_labels{label_eks_amazonaws_com_nodegroup=\\\"sales-mall-dev-nodegroup\\\"}) >= 6\", \"for\": \"5m\", \"labels\": {\"severity\": \"warning\"}, \"annotations\": {\"summary\": \"Node group has reached the reviewed node maximum\"}}, {\"alert\": \"StateMetricsUnavailable\", \"expr\": \"up{job=\\\"yobi-kube-state\\\"} == 0\", \"for\": \"3m\", \"labels\": {\"severity\": \"warning\"}, \"annotations\": {\"summary\": \"Kubernetes state collector unavailable\"}}, {\"alert\": \"OrderNotificationDeliveryFailing\", \"expr\": \"sum(increase(order_notification_events_total{result=\\\"failed\\\"}[10m])) > 0\", \"for\": \"1m\", \"labels\": {\"severity\": \"warning\"}, \"annotations\": {\"summary\": \"Order notification delivery failed; inspect outbox\"}}]}]}"
+      }
+    }
+  ]
+}
