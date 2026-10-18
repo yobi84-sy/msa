@@ -19,7 +19,7 @@ spec:
       serviceAccountName: product-sa
       containers:
         - name: product-container
-          image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-product:4287f4f83299558c0d3fca838f20acb72e567176-39123913768-1
+          image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-product:219813fbeef92cd75f0796f352797087337d0e60-39135985953-1
           ports:
             - containerPort: 8080
           resources:
@@ -30,6 +30,11 @@ spec:
               cpu: "0.5"
               memory: "250Mi"
           env:
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secrets
+                  key: JWT_SECRET_KEY
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:
