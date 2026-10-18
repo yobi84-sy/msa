@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,7 +32,7 @@ public class MemberController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<?> memberCreate(@RequestBody MemberSaveReqDto memberSaveReqDto){
+    public ResponseEntity<?> memberCreate(@Valid @RequestBody MemberSaveReqDto memberSaveReqDto){
         Long memberId = memberService.save(memberSaveReqDto);
 
         Map<String, Object> response = new HashMap<>();
@@ -40,6 +41,11 @@ public class MemberController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+    @GetMapping("/me")
+    public Map<String,Object> me(@RequestAttribute("authenticatedMemberId") Long id) {
+        Member m=memberService.findById(id);
+        return Map.of("id",m.getId(),"name",m.getName(),"nickname",m.getNickname(),"loginId",m.getLoginId(),"email",m.getEmail(),"role",m.getRole());
+    }
     @PostMapping("/doLogin")
     public ResponseEntity<?> doLogin(@RequestBody LoginDto dto){
         Member member = memberService.login(dto);
@@ -70,7 +76,7 @@ public class MemberController {
 
             String loginId = claims.getSubject();
             Member member = memberService.findByLoginId(loginId);
-            String role = claims.get("role", String.class);
+            String role = member.getRole().name();
             String newAccessToken = jwtTokenProvider.createToken(member.getId().toString(), role);
 
             Map<String, Object> tokenMap = new HashMap<>();

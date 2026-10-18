@@ -20,13 +20,16 @@ public class S3Service {
     private String bucket;
 
     public String uploadFile(MultipartFile file) throws IOException {
-        String fileName = "products/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+        String type=file.getContentType();
+        if(type==null || !java.util.Set.of("image/jpeg","image/png","image/webp").contains(type))throw new IllegalArgumentException("JPG, PNG, WEBP 이미지만 등록할 수 있습니다.");
+        String extension=type.equals("image/jpeg")?"jpg":type.equals("image/png")?"png":"webp";
+        String fileName = "products/" + UUID.randomUUID() + "." + extension;
 
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(file.getSize());
         metadata.setContentType(file.getContentType());
 
-        amazonS3.putObject(bucket, fileName, file.getInputStream(), metadata);
+        try(java.io.InputStream input=file.getInputStream()){amazonS3.putObject(bucket, fileName, input, metadata);}
 
         return amazonS3.getUrl(bucket, fileName).toString();
     }

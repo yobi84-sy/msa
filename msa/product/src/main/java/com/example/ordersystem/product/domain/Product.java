@@ -20,7 +20,12 @@ public class Product extends BaseTimeEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(length=64,unique=true)
+    private String sku;
+
     private String category;
+    private String gender;
+    private String sportStyle;
 
     @Column(length = 1000)
     private String description;
@@ -36,6 +41,8 @@ public class Product extends BaseTimeEntity {
     @Column(nullable = false)
     private Long memberId;
 
+    public void edit(String sku,String name,String category,String gender,String sportStyle,String description,Integer price){this.sku=sku;this.name=name;this.category=category;this.gender=gender;this.sportStyle=sportStyle;this.description=description;this.price=price;}
+    public void restock(int quantity){if(quantity<=0 || quantity>Integer.MAX_VALUE-this.stockQuantity)throw new IllegalArgumentException("재입고 수량을 확인하세요.");this.stockQuantity+=quantity;}
     public void updateStockQuantity(int stockQuantity){
         if (stockQuantity <= 0) {
             throw new IllegalArgumentException("구매 수량은 1개 이상이어야 합니다.");
