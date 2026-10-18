@@ -21,10 +21,15 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'YobiV3.Common.ps1')
+. (Join-Path $PSScriptRoot 'YobiV3.Rollouts.ps1')
+. (Join-Path $PSScriptRoot 'YobiV3.FirstInstall.ps1')
+. (Join-Path $PSScriptRoot 'YobiV3.Catalog.ps1')
 $PSNativeCommandUseErrorActionPreference = $false
 $OutputEncoding = New-Object Text.UTF8Encoding($false)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $Root = [IO.Path]::GetFullPath($ProjectRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
+$GitRoot = $Root
 $TerraformDir = Join-Path $Root 'terraform'
 $ExpectedAccountId = '021158485482'
 $ClusterName = 'sales-mall-dev-eks'
@@ -44,6 +49,13 @@ $WorkflowName = 'deploy-yobi-gitops.yml'
 $WorkflowPath = Join-Path $Root '.github/workflows/deploy-yobi-gitops.yml'
 $DbSecretScript = Join-Path $Root 'create-yobi-v1-db-secret.ps1'
 $CheckpointPath = Join-Path $SessionDir 'deploy.json'
+if($Resume -and (Test-Path -LiteralPath $CheckpointPath)){
+    $resumeSource=Get-Content -LiteralPath $CheckpointPath -Raw|ConvertFrom-Json
+    if(-not $resumeSource.PSObject.Properties['gitRoot']){throw 'Legacy deployment checkpoint has no isolated baseline. Start a reviewed fresh installation.'}
+    Assert-YobiFirstInstallCheckout $Root ([string]$resumeSource.gitRoot)
+    $GitRoot=[string]$resumeSource.gitRoot
+    $WorkflowPath=Join-Path $GitRoot '.github/workflows/deploy-yobi-gitops.yml'
+}
 # Build-time fragment only; the delivered scripts embed these functions.
 function Get-Field($Object, [string]$Name, $Default = $null) {
     if ($null -eq $Object) { return $Default }
@@ -52,8 +64,20 @@ function Get-Field($Object, [string]$Name, $Default = $null) {
     return $p.Value
 }
 function Invoke-Checked([string]$Exe, [string[]]$Arguments) {
-    & $Exe @Arguments | ForEach-Object { Write-Host $_ }
-    if ($LASTEXITCODE -ne 0) { throw "$Exe failed (exit $LASTEXITCODE). See preceding error." }
+    $null=Get-Command $Exe -ErrorAction Stop
+    $previousPreference=$ErrorActionPreference
+    $global:LASTEXITCODE=$null
+    try {
+        # PS 5.1 turns redirected native stderr into ErrorRecords. Keep consuming
+        # both streams, then fail on the actual exit code after logging diagnostics.
+        $ErrorActionPreference='Continue'
+        if ($Exe -eq 'terraform' -and $Arguments -contains 'apply') {
+            $liveArgs=New-Object 'System.Collections.Generic.List[string]'
+            $liveArgs.AddRange([string[]]$Arguments);$liveArgs.Insert($liveArgs.IndexOf('apply')+1,'-json')
+            & $Exe @($liveArgs.ToArray()) 2>&1 | ForEach-Object { Receive-YobiTerraformLine ([string]$_) }
+        } else { & $Exe @Arguments 2>&1 | ForEach-Object { Write-Host ([string]$_) } }
+    } finally { $ErrorActionPreference=$previousPreference }
+    if ($null -eq $LASTEXITCODE -or $LASTEXITCODE -ne 0) { throw "$Exe failed (exit $LASTEXITCODE). See preceding error." }
 }
 function Read-Native([string]$Exe, [string[]]$Arguments) {
     $result = @(& $Exe @Arguments)
@@ -65,12 +89,12 @@ function Read-Aws([string[]]$Arguments) {
     return ($s | ConvertFrom-Json)
 }
 function Read-Git([string[]]$Arguments) {
-    return (Read-Native 'git' (@('-C',$Root,'-c','core.quotepath=false') + $Arguments)).Trim()
+    return (Read-Native 'git' (@('-C',$GitRoot,'-c','core.quotepath=false') + $Arguments)).Trim()
 }
 function Run-Git([string[]]$Arguments) {
     # Recheck at each call: a user could switch branches while Terraform is running.
     if ((Read-Git @('branch','--show-current')) -cne 'yobi-v1') { throw 'Branch changed during operation. Refusing Git command; main remains untouched.' }
-    Invoke-Checked 'git' (@('-C',$Root) + $Arguments)
+    Invoke-Checked 'git' (@('-C',$GitRoot) + $Arguments)
 }
 function Assert-Tools([string[]]$Names) {
     foreach ($n in $Names) { if (-not (Get-Command $n -ErrorAction SilentlyContinue)) { throw "Missing command: $n" } }
@@ -78,6 +102,7 @@ function Assert-Tools([string[]]$Names) {
 function Assert-Identity {
     $who = Read-Aws @('sts','get-caller-identity')
     if ($who.Account -cne $ExpectedAccountId) { throw "Wrong AWS account: $($who.Account)" }
+    Send-YobiEvent 'verified' 'connection'
     Write-Host "[TARGET] account=$ExpectedAccountId profile=$AwsProfile region=$AwsRegion cluster=$ClusterName"
 }
 function Tf-Args([string[]]$Arguments) {
@@ -197,7 +222,7 @@ function New-RandomBase64([int]$LengthInBytes) {
 }
 
 function Ensure-AppSecrets {
-    Write-Host '[SECRETS] Synchronizing RDS credentials via Secrets Manager...'
+    Write-Host '[SECRETS] Synchronizing RDS credentials securely (managed or operator input)...'
     # This is the existing project script; it does not write the DB password to disk.
     & $DbSecretScript -AwsProfile $AwsProfile -AwsRegion $AwsRegion -ClusterName $ClusterName -Namespace $Namespace
     if (-not $?) { throw 'DB Secret script failed.' }
@@ -269,9 +294,12 @@ function Assert-Repo {
     if (Read-Git @('diff','--cached','--name-only')) { throw 'Existing staged changes: review/unstage them before V3 runs.' }
 }
 function Test-PublishPath([string]$Path) {
+    if($Path -cmatch '^first-install-baseline/(source\.zip|manifest\.json)$'){return $true}
     if ($Path -match '[\x00-\x1f"\\]' -or $Path -match '^/' -or $Path -match '(^|/)\.\.(/|$)') { return $false }
     if ($Path -match '(?i)(^|/)(\.git|\.terraform|\.gradle|build|bin|node_modules|logs|sessions)/|\.tfstate|\.tfvars|\.tfplan|\.env($|\.)|\.bak($|\.)|\.before-|\.(zip|7z|pem|key|pfx|p12|log|db)$') { return $false }
-    if ($Path -match '^(Deploy-YobiV[123]\.ps1|Destroy-YobiV[123]\.ps1|create-yobi-v1-db-secret\.ps1|\.gitignore)$') { return $true }
+    if($Path -ceq 'scripts/prepare-storefront-manifests.py' -or $Path -cmatch '^msa/frontend/src/assets/[A-Za-z0-9_.-]+\.(png|jpg|jpeg|webp)$'){return $true}
+    if ($Path -match '^lib/(BCrypt.Net-Next.dll|manifest.json|BCrypt-LICENSE.txt)$') { return $true }
+    if ($Path -match '^(Deploy-YobiV[123]\.ps1|Destroy-YobiV[123]\.ps1|create-yobi-v1-db-secret\.ps1|YobiV3\.Common\.ps1|YobiV3\.Backup\.ps1|YobiV3\.Credentials\.ps1|YobiV3\.Rollouts\.ps1|YobiV3\.FirstInstall\.ps1|YobiV3\.Catalog\.ps1|\.gitignore)$') { return $true }
     if ($Path -notmatch '^(msa/|argocd/|terraform/|\.github/workflows/)') { return $false }
     if ($Path -match '/gradle/wrapper/gradle-wrapper\.jar$') { return $true }
     return $Path -match '(?i)(Dockerfile|gradlew(\.bat)?|\.dockerignore|\.gitignore|\.terraform\.lock\.hcl)$|\.(java|gradle|properties|ya?ml|tf|hcl|json|js|html|css|conf|xml|md|txt|sh|ps1)$'
@@ -283,19 +311,24 @@ function Get-SourceChanges {
         if ($s) { $lines += $s -split "`n" }
     }
     $all = @($lines | Where-Object { $_ } | Sort-Object -Unique)
+    $skipped=New-Object 'System.Collections.Generic.List[string]'
     foreach ($p in $all) {
         if (Test-PublishPath $p) { $p }
-        else { Write-Host "[NOT PUBLISHED] $p" }
+        else { $skipped.Add($p) }
+    }
+    if($skipped.Count){
+        Write-Host "[NOT PUBLISHED] $($skipped.Count) local/GUI/archive files excluded (first 10 shown)."
+        foreach($p in @($skipped|Select-Object -First 10)){Write-Host "[LOCAL ONLY] $p"}
     }
 }
 function Assert-PublishChanges($Paths) {
     foreach ($p in @($Paths)) {
         if (-not (Test-PublishPath $p)) { throw "Out-of-scope/unreviewed file: $p. Keep GUI and local artifacts outside this source change set." }
-        $full = Join-Path $Root $p
+        $full = Join-Path $GitRoot $p
         if (Test-Path -LiteralPath $full -PathType Leaf) {
             $f = Get-Item -LiteralPath $full
             if ($f.Length -gt 2MB) { throw "Review large file separately: $p" }
-            if ($p -notmatch '\.jar$') {
+            if ($p -notmatch '\.(jar|dll)$') {
                 $s = [IO.File]::ReadAllText($full)
                 if ($s -match '(AKIA|ASIA)[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9_]{20,}') { throw "Possible credential in $p. Refusing publish." }
             }
@@ -318,6 +351,7 @@ function Assert-NoActiveBuild {
     if ($active.Count) { throw 'An existing workflow run is active/queued. Let it finish before starting a fresh V3 request. No run is cancelled automatically.' }
 }
 function Request-NewBuild($State) {
+    Send-YobiEvent 'started' 'actions' 'actions/build' 'create'
     if ((Get-RemoteRevision) -cne $State.sourceSha) { throw 'Remote source changed before dispatch. Start a reviewed fresh request.' }
     # Save BEFORE dispatch. A network error may occur after GitHub accepted it.
     # Resume searches this request ID and NEVER silently dispatches a duplicate.
@@ -391,6 +425,7 @@ function Wait-Revision([string]$Name,[string]$Revision) {
             $a = $raw | ConvertFrom-Json; $st = Get-Field $a 'status'
             $sync = Get-Field $st 'sync'; $health = Get-Field $st 'health'
             Write-Host "[ARGO] $Name sync=$(Get-Field $sync 'status' 'Pending') health=$(Get-Field $health 'status' 'Pending') revision=$(Get-Field $sync 'revision' '')"
+            Update-YobiDeploymentState ($Name -eq 'msa-monitoring' -and (Get-Field $sync 'revision' '') -ceq $Revision -and (Get-Field $sync 'status' '') -ceq 'Synced')
             if ((Get-Field $sync 'revision' '') -ceq $Revision -and (Get-Field $sync 'status' '') -ceq 'Synced' -and ($Name -eq 'msa-root' -or (Get-Field $health 'status' '') -ceq 'Healthy')) { return }
         }
         Start-Sleep -Seconds 10
@@ -401,9 +436,9 @@ function Wait-Web {
     $deadline = (Get-Date).AddSeconds($WebTimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
         try {
-            $home = Invoke-WebRequest -Uri 'https://server.sy84.store/' -UseBasicParsing -TimeoutSec 15
+            $homeResponse = Invoke-WebRequest -Uri 'https://server.sy84.store/' -UseBasicParsing -TimeoutSec 15
             $api = Invoke-WebRequest -Uri 'https://server.sy84.store/product-service/product/list' -UseBasicParsing -TimeoutSec 15
-            if ($home.StatusCode -ne 200 -or $api.StatusCode -ne 200) { throw 'HTTP status not 200.' }
+            if ($homeResponse.StatusCode -ne 200 -or $api.StatusCode -ne 200) { throw 'HTTP status not 200.' }
             if ([string]$api.Headers['Content-Type'] -notmatch 'application/json' -or $api.Content.TrimStart() -notmatch '^\[') { throw 'Product API did not return a JSON array.' }
             $null = $api.Content | ConvertFrom-Json
             Write-Host '[WEB] HTTPS frontend + JSON product list verified (TLS validation enabled).'
@@ -414,13 +449,16 @@ function Wait-Web {
 }
 
 # ---------------- MAIN: only -Execute may publish or mutate infrastructure ----------------
+ $preparedCatalog=Read-YobiCatalog $Root
+ Write-Host ('[CATALOG CHECK] '+$preparedCatalog.products.Count+' products and original image hashes verified locally.')
+Send-YobiEvent 'phase' 'connection' '' '' '설치 사전 검사 · Git/AWS 인증 확인'
 Assert-Tools @('git','gh','aws','terraform','kubectl')
 Assert-Repo
 Assert-FullBuildContract
 Assert-DefaultBranch
 Assert-Identity
 Invoke-Checked 'gh' @('auth','status','--hostname','github.com')
-foreach ($p in @('terraform','argocd/root-app.yml','create-yobi-v1-db-secret.ps1')) {
+foreach ($p in @('terraform','argocd/root-app.yml','create-yobi-v1-db-secret.ps1','YobiV3.Common.ps1','YobiV3.Backup.ps1','YobiV3.Credentials.ps1','YobiV3.Rollouts.ps1','lib/BCrypt.Net-Next.dll','lib/manifest.json')) {
     if (-not (Test-Path -LiteralPath (Join-Path $Root $p))) { throw "Missing $p" }
 }
 $sourceChanges = @(Get-SourceChanges)
@@ -432,26 +470,55 @@ Write-Host '[V3] Default branch yobi-v1; correlated workflow_dispatch full build
 foreach ($p in $sourceChanges) { Write-Host "[PUBLISH] $p" }
 if (-not $Execute) { Write-Host '[CHECK ONLY] No init/apply/commit/push/Secrets/deployment performed. Add -Execute for reviewed execution.'; return }
 if ($Resume -and -not (Test-Path -LiteralPath $CheckpointPath)) { throw 'No checkpoint for this project. Use a fresh deployment.' }
-if ((Read-Host 'Type DEPLOY YOBI-V3 to approve infrastructure costs, reviewed source publish and full GitHub build') -cne 'DEPLOY YOBI-V3') { throw 'Cancelled.' }
+if ((Read-Host 'Type DEPLOY to approve infrastructure costs, reviewed source publish and full GitHub build') -cne 'DEPLOY') { throw 'Cancelled.' }
 Enter-ProjectLock
 try {
-    # Only fetch the work branch; never fetch/checkout/reset/push main.
-    Run-Git @('fetch','origin','refs/heads/yobi-v1:refs/remotes/origin/yobi-v1')
-    $aheadBehind = (Read-Git @('rev-list','--left-right','--count','HEAD...origin/yobi-v1')) -split '\s+'
-    if (-not $Resume -and [int]$aheadBehind[1] -gt 0) {
-        if ([int]$aheadBehind[0] -eq 0 -and $sourceChanges.Count -eq 0 -and -not (Read-Git @('status','--porcelain','--untracked-files=no'))) {
-            Run-Git @('merge','--ff-only','origin/yobi-v1')
-            Write-Host '[GIT] Fast-forwarded clean yobi-v1 to remote (including image-tag bot commits).'
-        } else { throw 'Local/remote yobi-v1 need manual reconciliation. No reset/rebase/force push is performed.' }
+    $priorDbInput=$env:TF_VAR_db_password_wo
+    $priorEmailInput=$env:TF_VAR_yobi_alert_email
+    foreach($service in $Services){Send-YobiEvent 'planned' 'app' "deployment/$service-depl" 'create'}
+    foreach($group in @('actions','argo','prometheus','grafana','tls')){
+        $address=switch($group){'actions'{'actions/build'} 'argo'{'argocd/sync'} 'tls'{'certificate/readiness'} default{"deployment/$group"}}
+        Send-YobiEvent 'planned' $group $address $(if($group -eq 'argo'){'update'}elseif($group -eq 'tls'){'check'}else{'create'})
+    }
+    Send-YobiEvent 'phase' 'connection' '' '' '작업 브랜치 동기화 확인'
+    Send-YobiEvent 'planned' 'app' 'verification/web' 'check'
+    Send-YobiEvent 'planned' 'app' 'catalog/seed' 'check'
+    Send-YobiEvent 'planned' 'grafana' 'verification/https' 'check'
+    Send-YobiEvent 'planned' 'argo' 'verification/https' 'check'
+    if(-not $Resume){
+        Assert-NoActiveBuild
+        $GitRoot=New-YobiFirstInstallCheckout $Root ([string[]]$sourceChanges)
+        $WorkflowPath=Join-Path $GitRoot '.github/workflows/deploy-yobi-gitops.yml'
+        Assert-Repo
     }
     Assert-FullBuildContract
     if (-not $Resume) { Assert-NoActiveBuild }
     if (-not $SkipTerraform -and -not $Resume) {
+        Send-YobiEvent 'phase' 'connection' '' '' 'Terraform 공급자 초기화'
         Invoke-Checked 'terraform' @("-chdir=$TerraformDir",'init','-input=false','-no-color')
         Assert-StateAccount (Get-StateResources)
+        . (Join-Path $PSScriptRoot 'YobiV3.Credentials.ps1')
+        $dbState=@(Get-StateResources | Where-Object address -ceq 'aws_db_instance.main')
+        if ($dbState.Count) {
+            throw 'An existing DB requires a reviewed update/resume procedure. This installer initializes fresh stacks only; it will not silently change password management on a live DB.'
+        }
+        if (-not $dbState.Count) { Set-YobiDbInput }
+        $settingsPath=Join-Path $Root '.yobi-local/operator-settings.json'
+        if (Test-Path -LiteralPath $settingsPath) {
+            $settings=Get-Content -LiteralPath $settingsPath -Raw|ConvertFrom-Json
+            if ($settings.PSObject.Properties['alertEmail']) {
+                $email=[string]$settings.alertEmail
+                if ($email -and $email -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') { throw 'Invalid local alert email.' }
+                $env:TF_VAR_yobi_alert_email=$email
+                Write-Host '[ALERTS] Local email subscription configured; confirm the AWS SNS subscription email after installation.'
+            }
+        }
         $plan = New-PrivatePlanPath
         try {
+            Send-YobiEvent 'phase' 'connection' '' '' 'Terraform 실행 계획 생성 중'
             Invoke-Checked 'terraform' (Tf-Args @('plan','-input=false','-no-color',"-out=$plan"))
+            $planDoc=(Read-Native 'terraform' @("-chdir=$TerraformDir",'show','-json',$plan))|ConvertFrom-Json
+            Send-YobiPlan $planDoc
             if ((Read-Host 'Type yes to apply this exact saved plan') -cne 'yes') { throw 'Plan not approved.' }
             Invoke-Checked 'terraform' @("-chdir=$TerraformDir",'apply','-input=false','-no-color',$plan)
         } finally { Remove-OwnPlan $plan }
@@ -461,9 +528,12 @@ try {
     Invoke-Checked 'aws' @('eks','update-kubeconfig','--name',$ClusterName,'--region',$AwsRegion,'--profile',$AwsProfile)
     if ((Read-Native 'kubectl' @('config','current-context')).Trim() -cne $cluster.arn) { throw 'Wrong Kubernetes context.' }
     foreach ($s in $Services) { $null = Read-Aws @('ecr','describe-repositories','--repository-names',"$RepositoryPrefix-$s") }
+    Send-YobiEvent 'phase' 'app' '' '' '쇼핑몰 비밀번호와 Secret 준비'
     Ensure-AppSecrets
     Invoke-Checked 'kubectl' @('apply','-f',(Join-Path $Root 'msa/product/k8s/product-sa.yml'))
     Ensure-GrafanaAdminSecret
+    . (Join-Path $PSScriptRoot 'YobiV3.Credentials.ps1')
+    Ensure-YobiArgoPassword
     if ($Resume) {
         $cp = Get-Content -LiteralPath $CheckpointPath -Raw | ConvertFrom-Json
         if ($cp.sourceSha -cnotmatch '^[0-9a-f]{40}$' -or $cp.requestId -cnotmatch '^[0-9a-f]{32}$' -or ($cp.runId -and $cp.runId -cnotmatch '^\d+$')) { throw 'Invalid V3 checkpoint identifiers.' }
@@ -474,6 +544,7 @@ try {
         Assert-NoActiveBuild
         # Sources are committed once with [skip ci], then built by dispatch.
         # For pre-existing local commits, an empty skip-ci tip suppresses the push build.
+        Send-YobiEvent 'phase' 'actions' '' '' '게시할 변경 파일 검토'
         $sourceChanges = @(Get-SourceChanges)
         Assert-PublishChanges $sourceChanges
         if ($sourceChanges.Count -and -not $PublishChanges) { throw 'Source changed during provisioning. Review before publishing.' }
@@ -487,18 +558,20 @@ try {
             Run-Git @('diff','--cached','--check')
             Run-Git @('diff','--cached','--stat')
             if ((Read-Host 'Type PUSH YOBI-V1 to publish reviewed sources; push CI is skipped and dispatch will build all five services') -cne 'PUSH YOBI-V1') { throw 'Publish cancelled. Staged files remain for review.' }
-            Run-Git @('commit','--allow-empty','-m','ci: prepare V3 full deployment [skip ci]')
+            Run-Git @('-c','user.name=Yobi Installer','-c','user.email=yobi-installer@local.invalid','commit','--allow-empty','-m','ci: prepare V3 full deployment [skip ci]')
             Run-Git @('push','origin','HEAD:refs/heads/yobi-v1')
         }
         Assert-DefaultBranch
         Assert-NoActiveBuild
-        $cp = [pscustomobject]@{ root=$Root; account=$ExpectedAccountId; clusterArn=[string]$cluster.arn; clusterCreatedAt=[string]$cluster.createdAt; sourceSha=(Read-Git @('rev-parse','HEAD')); runId=''; attempt=0; gitopsRevision=''; requestId=([guid]::NewGuid().ToString('N')) }
+        $cp = [pscustomobject]@{ root=$Root; gitRoot=$GitRoot; account=$ExpectedAccountId; clusterArn=[string]$cluster.arn; clusterCreatedAt=[string]$cluster.createdAt; sourceSha=(Read-Git @('rev-parse','HEAD')); runId=''; attempt=0; gitopsRevision=''; requestId=([guid]::NewGuid().ToString('N')) }
         Request-NewBuild $cp
     }
     Wait-ExactRun $cp
+    Send-YobiEvent 'completed' 'actions' 'actions/build' 'create'
     $tag = "$($cp.sourceSha)-$($cp.runId)-$($cp.attempt)"
     $revision = Get-RemoteRevision
     Assert-ImagesForRevision $revision $tag
+    $script:ExpectedRolloutTag=$tag
     $cp.gitopsRevision = $revision; Save-Checkpoint $cp
     foreach ($n in @('msa-apigateway','msa-member','msa-product','msa-ordering','msa-frontend','msa-hpa','msa-services','msa-argocd')) {
         if (Read-Native 'kubectl' @('get','application',$n,'-n','argocd','--ignore-not-found','-o','name')) { throw "Legacy Application ownership conflict: $n" }
@@ -507,13 +580,42 @@ try {
     $rootB64 = Read-Native 'gh' @('api',"repos/$GitHubRepo/contents/argocd/root-app.yml`?ref=$revision",'--jq','.content')
     [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($rootB64)) | & kubectl apply -f -
     Assert-ExitCode 'ArgoCD root bootstrap'
+    Send-YobiEvent 'started' 'argo' 'argocd/sync' 'update'
     foreach ($n in @('msa-root','yobi-v1-msa','msa-monitoring')) { Wait-Revision $n $revision }
-    foreach ($s in $Services) { Invoke-Checked 'kubectl' @('rollout','status',"deployment/$s-depl",'-n',$Namespace,"--timeout=${RolloutTimeoutSeconds}s") }
-    foreach ($s in @('prometheus','grafana')) { Invoke-Checked 'kubectl' @('rollout','status',"deployment/$s",'-n','monitoring',"--timeout=${RolloutTimeoutSeconds}s") }
+    Send-YobiEvent 'completed' 'argo' 'argocd/sync' 'update'
+    foreach ($s in $Services) { Send-YobiEvent 'planned' 'app' "deployment/$s-depl" 'create' }
+    foreach ($s in $Services) {
+        if(-not $script:YobiObservedDeployments.ContainsKey("deployment/$s-depl")){Publish-YobiDeploymentState 'app' "deployment/$s-depl" 'started'}
+        Invoke-Checked 'kubectl' @('rollout','status',"deployment/$s-depl",'-n',$Namespace,"--timeout=${RolloutTimeoutSeconds}s")
+        Publish-YobiDeploymentState 'app' "deployment/$s-depl" 'completed'
+    }
+    foreach ($s in @('prometheus','grafana')) { if(-not $script:YobiObservedDeployments.ContainsKey("deployment/$s")){Publish-YobiDeploymentState $s "deployment/$s" 'started'}; Invoke-Checked 'kubectl' @('rollout','status',"deployment/$s",'-n','monitoring',"--timeout=${RolloutTimeoutSeconds}s"); Publish-YobiDeploymentState $s "deployment/$s" 'completed' }
+    Update-YobiDeploymentState $true
+    foreach($name in @($Services|ForEach-Object {"deployment/$_-depl"})+@('deployment/prometheus','deployment/grafana')){if(-not $script:YobiCurrentReady[$name]){throw "Current expected deployment is not Ready: $name"}}
     Invoke-Checked 'kubectl' @('rollout','status','daemonset/node-exporter','-n','monitoring',"--timeout=${RolloutTimeoutSeconds}s")
+    Send-YobiEvent 'started' 'tls' 'certificate/readiness' 'check'
     Invoke-Checked 'kubectl' @('wait','--for=condition=Ready','certificate/server-sy84-store-tls','-n',$Namespace,"--timeout=${WebTimeoutSeconds}s")
+    Invoke-Checked 'kubectl' @('wait','--for=condition=Ready','certificate/argocd-sy84-store-tls','-n','argocd',"--timeout=${WebTimeoutSeconds}s")
+    Send-YobiEvent 'completed' 'tls' 'certificate/readiness' 'check'
+    Send-YobiEvent 'started' 'app' 'verification/web' 'check'
     Wait-Web
+    Send-YobiEvent 'phase' 'app' '' '' '초기 상품·이미지 등록 및 중복·재고 보존 확인'
+    Invoke-YobiCatalogSeed $Root
+    Send-YobiEvent 'completed' 'app' 'verification/web' 'check'
+    foreach ($url in @('https://grafana.sy84.store/api/health','https://argocd.sy84.store/')) {
+        $webGroup=if($url -like '*grafana*'){'grafana'}else{'argo'}
+        Send-YobiEvent 'started' $webGroup 'verification/https' 'check'
+        $webResponse=Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
+        if ($webResponse.StatusCode -ne 200) { throw "HTTPS verification failed: $url" }
+        Send-YobiEvent 'completed' $webGroup 'verification/https' 'check'
+    }
+    Send-YobiEvent 'verified' 'web' '' '' 'HTTPS frontend/API, Grafana and Argo CD checked'
     if ((Get-RemoteRevision) -cne $revision) { throw 'Branch changed during final checks. Revalidate before reporting success.' }
     Write-Host "[SUCCESS] GitOps=$revision Actions=$($cp.runId)/$($cp.attempt); HTTPS/API verified. ArgoCD continues watching yobi-v1."
     Write-Host '[NOTE] Login/order/upload, HPA metrics and Prometheus target health still require their own operational checks.'
-} finally { Exit-ProjectLock }
+} finally {
+    [Environment]::SetEnvironmentVariable('TF_VAR_db_password_wo',$priorDbInput,'Process')
+    [Environment]::SetEnvironmentVariable('TF_VAR_yobi_alert_email',$priorEmailInput,'Process')
+    Remove-Variable priorDbInput,priorEmailInput -ErrorAction SilentlyContinue
+    Exit-ProjectLock
+}

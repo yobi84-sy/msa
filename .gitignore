@@ -33,3 +33,7 @@
 # Local IDE
 # ==========================================
 .vscode/
+# Local operator choices and generated backups/credentials
+.yobi-local/
+# Generated Windows shortcut contains machine-specific absolute paths.
+/AWS Deployment Manager V1.lnk

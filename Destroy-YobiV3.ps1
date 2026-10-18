@@ -18,6 +18,8 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'YobiV3.Common.ps1')
+. (Join-Path $PSScriptRoot 'YobiV3.Backup.ps1')
 $PSNativeCommandUseErrorActionPreference = $false
 $OutputEncoding = New-Object Text.UTF8Encoding($false)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -50,7 +52,11 @@ function Get-Field($Object, [string]$Name, $Default = $null) {
     return $p.Value
 }
 function Invoke-Checked([string]$Exe, [string[]]$Arguments) {
-    & $Exe @Arguments | ForEach-Object { Write-Host $_ }
+    if ($Exe -eq 'terraform' -and $Arguments -contains 'apply') {
+        $liveArgs=New-Object 'System.Collections.Generic.List[string]'
+        $liveArgs.AddRange([string[]]$Arguments);$liveArgs.Insert($liveArgs.IndexOf('apply')+1,'-json')
+        & $Exe @($liveArgs.ToArray()) | ForEach-Object { Receive-YobiTerraformLine ([string]$_) }
+    } else { & $Exe @Arguments | ForEach-Object { Write-Host $_ } }
     if ($LASTEXITCODE -ne 0) { throw "$Exe failed (exit $LASTEXITCODE). See preceding error." }
 }
 function Read-Native([string]$Exe, [string[]]$Arguments) {
@@ -76,6 +82,7 @@ function Assert-Tools([string[]]$Names) {
 function Assert-Identity {
     $who = Read-Aws @('sts','get-caller-identity')
     if ($who.Account -cne $ExpectedAccountId) { throw "Wrong AWS account: $($who.Account)" }
+    Send-YobiEvent 'verified' 'connection'
     Write-Host "[TARGET] account=$ExpectedAccountId profile=$AwsProfile region=$AwsRegion cluster=$ClusterName"
 }
 function Tf-Args([string[]]$Arguments) {
@@ -238,6 +245,7 @@ function Remove-NlbServiceSafely([string]$VpcId, [string]$ClusterArn, [string[]]
         $_.metadata.namespace -eq $ServiceNamespace -and $_.metadata.name -eq $ServiceName
     })
     if ($projectService.Count -gt 0) {
+        Send-YobiEvent 'started' 'ingress' 'service/nginx-nlb-cleanup' 'delete'
         & kubectl delete service $ServiceName -n $ServiceNamespace --ignore-not-found=true --wait=false
         Assert-ExitCode 'kubectl delete nginx ingress Service'
     } else {
@@ -266,6 +274,7 @@ function Remove-NlbServiceSafely([string]$VpcId, [string]$ClusterArn, [string[]]
             $serviceLeft.Count, $left.Nlbs.Count, $left.TargetGroups.Count, $left.K8sSecurityGroups.Count)
         if ($serviceLeft.Count -eq 0 -and $left.Nlbs.Count -eq 0 -and
             $left.TargetGroups.Count -eq 0 -and $left.K8sSecurityGroups.Count -eq 0) {
+            if($projectService.Count -gt 0){Send-YobiEvent 'completed' 'ingress' 'service/nginx-nlb-cleanup' 'delete'}
             break
         }
         if ((Get-Date) -ge $deadline) {
@@ -276,7 +285,7 @@ function Remove-NlbServiceSafely([string]$VpcId, [string]$ClusterArn, [string[]]
 }
 
 function Disable-ProjectDns([string[]]$StateAddresses) {
-    $owned = @($StateAddresses | Where-Object { $_ -cmatch '^aws_route53_record\.msa\["(server|grafana|prometheus)"\]$' })
+    $owned = @($StateAddresses | Where-Object { $_ -cmatch '^aws_route53_record\.msa\["(server|grafana|prometheus|argocd)"\]$' })
     if (-not $owned.Count) { Write-Host '[DNS] No project alias records in state.'; return }
     $planPath = New-PrivatePlanPath
     try {
@@ -285,6 +294,7 @@ function Disable-ProjectDns([string[]]$StateAddresses) {
         $argsList = @('plan','-input=false','-no-color','-var=enable_nlb_dns=false',"-out=$planPath",'-target=aws_route53_record.msa')
         Invoke-Checked 'terraform' (Tf-Args $argsList)
         $plan = (Read-Native 'terraform' @("-chdir=$TerraformDir",'show','-json',$planPath)) | ConvertFrom-Json
+        Send-YobiPlan $plan
         $changes = @(Get-Field $plan 'resource_changes' @() | Where-Object { $_.mode -eq 'managed' -and ($_.change.actions -join ',') -ne 'no-op' })
         foreach ($c in $changes) {
             if ($c.address -cnotin $owned -or ($c.change.actions -join ',') -cne 'delete') { throw "DNS cleanup plan contains unexpected change: $($c.address). Nothing applied." }
@@ -306,6 +316,17 @@ function Patch-Application([string]$Name,$Patch) {
     } finally { if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force } }
 }
 function Stop-GitOps {
+    $script:KubeOwned=@()
+    foreach($scope in @(@('soldesk','app'),@('monitoring','monitoring'))){
+        $deploys=(Read-Native 'kubectl' @('get','deployment','-n',$scope[0],'-o','json','--request-timeout=20s'))|ConvertFrom-Json
+        foreach($d in @($deploys.items)){
+            $group=if($scope[0] -eq 'soldesk'){'app'}elseif($d.metadata.name -in @('grafana','prometheus')){[string]$d.metadata.name}else{continue}
+            $addr="deployment/$($d.metadata.name)"
+            $script:KubeOwned+=@{group=$group;address=$addr;ns=$scope[0];name=$d.metadata.name}
+            Send-YobiEvent 'present' $group $addr
+            Send-YobiEvent 'planned' $group $addr 'delete'
+        }
+    }
     $crd = Read-Native 'kubectl' @('get','crd','applications.argoproj.io','--ignore-not-found','-o','name','--request-timeout=20s')
     if (-not $crd) { Write-Host '[ARGO] Application CRD absent (partial install).'; return }
     $expected = @{
@@ -351,7 +372,15 @@ function Stop-GitOps {
         }
     }
     foreach ($name in @('msa-root','yobi-v1-msa','msa-monitoring')) {
+        foreach($d in $script:KubeOwned){
+            if(($name -eq 'yobi-v1-msa' -and $d.ns -eq 'soldesk') -or ($name -eq 'msa-monitoring' -and $d.ns -eq 'monitoring')){Send-YobiEvent 'started' $d.group $d.address 'delete'}
+        }
         Invoke-Checked 'kubectl' @('delete','application',$name,'-n','argocd','--ignore-not-found','--wait=true','--timeout=300s')
+    }
+    foreach($d in $script:KubeOwned){
+        $left=Read-Native 'kubectl' @('get','deployment',$d.name,'-n',$d.ns,'--ignore-not-found','-o','name','--request-timeout=20s')
+        if($left){throw 'App remains after Argo cascade; no data backup/deletion can continue.'}
+        Send-YobiEvent 'completed' $d.group $d.address 'delete'
     }
     Write-Host '[ARGO] Verified project Applications removed. No Git changes; next Deploy can bootstrap them again.'
 }
@@ -449,7 +478,7 @@ function Invoke-TerraformWithCleanup([string]$PlanPath) {
     $tf = (Get-Command terraform).Source
     $start = New-Object Diagnostics.ProcessStartInfo
     $start.FileName = $tf
-    $start.Arguments = (@("-chdir=$TerraformDir",'apply','-input=false','-no-color',$PlanPath) | ForEach-Object { Quote-NativeArgument $_ }) -join ' '
+    $start.Arguments = (@("-chdir=$TerraformDir",'apply','-json','-input=false','-no-color',$PlanPath) | ForEach-Object { Quote-NativeArgument $_ }) -join ' '
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
     $start.RedirectStandardOutput = $true
@@ -470,7 +499,7 @@ function Invoke-TerraformWithCleanup([string]$PlanPath) {
             if (-not $outDone -and $outTask.IsCompleted) {
                 $line = $outTask.GetAwaiter().GetResult()
                 if ($null -eq $line) { $outDone = $true }
-                else { Write-Host $line; $outTask = $proc.StandardOutput.ReadLineAsync() }
+                else { Receive-YobiTerraformLine $line; $outTask = $proc.StandardOutput.ReadLineAsync() }
             }
             if (-not $errDone -and $errTask.IsCompleted) {
                 $line = $errTask.GetAwaiter().GetResult()
@@ -499,6 +528,7 @@ function Invoke-TerraformWithCleanup([string]$PlanPath) {
 }
 
 # ---------------- MAIN ----------------
+Send-YobiEvent 'phase' 'connection' '' '' '삭제 대상과 소유관계 확인'
 Assert-Tools @('terraform','aws','kubectl')
 if (-not (Test-Path -LiteralPath $TerraformDir -PathType Container)) { throw "Missing terraform directory: $TerraformDir" }
 Assert-Identity
@@ -545,17 +575,29 @@ $snapshot.clusterSg = $clusterSg
 $managedEniIds = @($resources | Where-Object { $_.mode -eq 'managed' -and $_.type -eq 'aws_network_interface' } | ForEach-Object { $_.values.id })
 $managedSgIds = @($resources | Where-Object { $_.mode -eq 'managed' -and $_.type -in @('aws_security_group','aws_default_security_group') } | ForEach-Object { $_.values.id })
 Write-Host "[TARGET] VPC=$vpcId EKS=$ClusterName capturedClusterSG=$clusterSg"
-Write-Host '[IMPACT] Deletes project applications, RDS data (no final snapshot), S3 objects, ECR images, DNS aliases and infrastructure. Strictly verified unmanaged CNI ENIs/cluster SG may also be removed.'
+Send-YobiInventory $resources
+Write-Host '[IMPACT] Deletes project applications, RDS/S3 data according to the operator BACKUP/RESET choices, ECR images, DNS aliases and infrastructure. Strictly verified unmanaged CNI ENIs/cluster SG may also be removed.'
 if (-not $Execute) { Write-Host '[CHECK ONLY] No resources changed. -Execute still requires explicit DESTROY confirmation.'; return }
 if ((Read-Host "Type DESTROY $vpcId to approve permanent deletion including guarded orphan cleanup") -cne "DESTROY $vpcId") { throw 'Cancelled; no resources changed.' }
 Enter-ProjectLock
 try {
+    . (Join-Path $PSScriptRoot 'YobiV3.Backup.ps1')
+    $rdsMode=Read-Host 'RDS_DATA_MODE [BACKUP/RESET] (default BACKUP)'
+    $s3Mode=Read-Host 'S3_DATA_MODE [BACKUP/RESET] (default BACKUP)'
+    if (-not $rdsMode) { $rdsMode='BACKUP' }; if (-not $s3Mode) { $s3Mode='BACKUP' }
+    if ($rdsMode -cnotin @('BACKUP','RESET') -or $s3Mode -cnotin @('BACKUP','RESET')) { throw 'Invalid data mode. No deletion started.' }
+    foreach($r in @($resources | Where-Object mode -eq 'managed')){Send-YobiEvent 'planned' (Get-YobiGroup $r.address) $r.address 'delete'}
+    $backupResources=$resources
+    Send-YobiInventory $resources
     $snapshot | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $SnapshotPath -Encoding UTF8
     if ($clusterExists) {
         Invoke-Checked 'aws' @('eks','update-kubeconfig','--name',$ClusterName,'--profile',$AwsProfile,'--region',$AwsRegion)
+        Send-YobiEvent 'phase' 'app' '' '' 'Argo CD 동기화 중지 및 앱 쓰기 작업 종료'
         Stop-GitOps
+        Invoke-YobiDataBackup $backupResources $rdsMode $s3Mode
         Remove-NlbServiceSafely $vpcId ([string]$clusterInfo.arn) $state
     } elseif ($liveVpc) {
+        Invoke-YobiDataBackup $backupResources $rdsMode $s3Mode
         $lbs = Read-Aws @('elbv2','describe-load-balancers')
         if (@($lbs.LoadBalancers | Where-Object VpcId -ceq $vpcId).Count) { throw 'Cluster absent but Load Balancer remains. No automatic force deletion.' }
         Write-Host '[RESUME] Cluster absent; no Kubernetes calls. Guarded orphan cleanup before infrastructure plan.'
@@ -564,12 +606,14 @@ try {
         $deadline = (Get-Date).AddSeconds($OrphanGraceSeconds + 25)
         do { Invoke-OrphanPass; if ((Get-Date) -ge $deadline) { break }; Start-Sleep -Seconds 10 } while ($true)
     }
+    if (-not $clusterExists -and -not $liveVpc) { Invoke-YobiDataBackup $backupResources $rdsMode $s3Mode }
     for ($attempt=1; $attempt -le 2; $attempt++) {
         $deletedBefore = $script:DeletedOrphans
         $plan = New-PrivatePlanPath
         try {
             Invoke-Checked 'terraform' (Tf-Args @('plan','-destroy','-input=false','-no-color','-var=enable_nlb_dns=false',"-out=$plan"))
             $doc = (Read-Native 'terraform' @("-chdir=$TerraformDir",'show','-json',$plan)) | ConvertFrom-Json
+            Send-YobiPlan $doc
             foreach ($r in @(Get-Field $doc 'resource_changes' @())) {
                 if ($r.mode -eq 'managed' -and ($r.change.actions -join ',') -notin @('delete','no-op')) { throw "Unexpected non-delete in destroy plan: $($r.address)" }
             }
@@ -583,5 +627,6 @@ try {
     $left = @(Get-StateResources | Where-Object mode -eq 'managed')
     $vpcAfter = Read-Aws @('ec2','describe-vpcs','--filters',"Name=vpc-id,Values=$vpcId")
     if ($left.Count -or @($vpcAfter.Vpcs).Count) { throw 'Destroy not complete: managed state or project VPC remains.' }
+    Send-YobiEvent 'verified' 'web' '' 'delete' 'managed-state-empty-and-vpc-absent'
     Write-Host '[SUCCESS] Managed Terraform resources removed and exact VPC absent. Git/main/yobi-v1 were not changed by Destroy.'
 } finally { Exit-ProjectLock }

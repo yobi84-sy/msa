@@ -5,7 +5,7 @@
 
 terraform {
   # Terraform 최소 실행 버전
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.11.0"
 
   # AWS Provider 버전 범위 지정
   required_providers {

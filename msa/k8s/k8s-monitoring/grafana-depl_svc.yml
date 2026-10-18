@@ -20,6 +20,8 @@ spec:
           configMap:
             name: grafana-dashboard
             items:
+              - key: node-exporter-full.json
+                path: node-exporter-full.json
               - key: yobi-v1.json
                 path: yobi-v1.json
         - name: dashboard-provider
@@ -37,6 +39,8 @@ spec:
           # 관리자 계정 비밀번호는 Git/YAML에 하드코딩하지 않고 배포 시 생성한 Secret 사용.
           # 관리자 계정은 admin이며 첫 로그인 이후 변경 권장.
           env:
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: /var/lib/grafana/dashboards/node-exporter-full.json
             - name: GF_SECURITY_ADMIN_USER
               value: admin
             - name: GF_SECURITY_ADMIN_PASSWORD

@@ -37,8 +37,10 @@ resource "aws_db_instance" "main" {
   db_name  = "ordermsa"
   username = "admin"
 
-  # AWS Secrets Manager에서 마스터 비밀번호 관리
-  manage_master_user_password = true
+  # Operator password is write-only. Omit manage_master_user_password entirely:
+  # the AWS provider conflicts with password_wo even when explicitly false.
+  password_wo         = var.db_password_wo
+  password_wo_version = var.db_password_version
 
   # Network
   db_subnet_group_name   = aws_db_subnet_group.main.name

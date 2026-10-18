@@ -1,0 +1,387 @@
+{
+  "schemaVersion": 1,
+  "purpose": "first-install-original-storefront",
+  "bundleSha256": "35AD4AD6B343D8DCA9A8677BAE5B49C8F1261B20B6BB226C83722B8AA4B29D67",
+  "files": [
+    {
+      "path": "msa/apigateway/Dockerfile",
+      "sha256": "EADFEA4B302C5ECC6BB379F9D2842F5361739EE10A92F28C99570450B8B80B1A"
+    },
+    {
+      "path": "msa/apigateway/build.gradle",
+      "sha256": "7CAC12A9B61FD507728AD5074F67F18367CB026B8FE25110958A39896555CFC4"
+    },
+    {
+      "path": "msa/apigateway/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "2DB75C40782F5E8BA1FC278A5574BAB070ADCCB2D21CA5A6E5ED840888448046"
+    },
+    {
+      "path": "msa/apigateway/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "ECE18011F0AEA5DBB5D4B99F20124A936EB419E80FFAC798CD5C467DD3B3059E"
+    },
+    {
+      "path": "msa/apigateway/gradlew",
+      "sha256": "A3648413B47EF77AF21D5EBC36C687C7D103AAEF3E17F33DE7D4F080A6F300A3"
+    },
+    {
+      "path": "msa/apigateway/gradlew.bat",
+      "sha256": "57931B17DD228E5C24DAC90E815D0BF82477E831A4618DFAB4136F5446B42A9F"
+    },
+    {
+      "path": "msa/apigateway/settings.gradle",
+      "sha256": "D3B98F3B410691269E299E885E3000C020D9B0EB6AFD086EFC05FD69552F6B4C"
+    },
+    {
+      "path": "msa/apigateway/src/main/java/com/example/ordersystem/ApigatewayApplication.java",
+      "sha256": "6AA7382771B8B8B950B781C6FD1C77C25F6BAC2F93DDACFBF4DB0A1A7B5431AE"
+    },
+    {
+      "path": "msa/apigateway/src/main/java/com/example/ordersystem/JwtAuthFilter.java",
+      "sha256": "9C232D08967B0BB87470DE50DF477D360881F68CE4234976E89A68DF79629EEA"
+    },
+    {
+      "path": "msa/apigateway/src/main/resources/application-prod.yml",
+      "sha256": "06CE9259A15D4AB4818DF926E60F922442C8E22DB9218F1918AD270381AFB383"
+    },
+    {
+      "path": "msa/apigateway/src/main/resources/application.yml",
+      "sha256": "A5E9A2E8C3125C3BCF0FF3062D8EC0FAC1D1D043B14B37BD251259C97012FE56"
+    },
+    {
+      "path": "msa/apigateway/src/test/java/com/example/ordersystem/OrdersystemApplicationTests.java",
+      "sha256": "41B97716F407F84D8D85002D277CDF11CB5A2280FAA8E496FE5F421FB0BF0855"
+    },
+    {
+      "path": "msa/frontend/Dockerfile",
+      "sha256": "73FAC60FBBFF537C4BE8E71F87425EA0F9F874F5E34E9EA20C7800E993EE5003"
+    },
+    {
+      "path": "msa/frontend/nginx/default.conf",
+      "sha256": "15D3DD0D28B2635C778F352E4170605FD484C46F878F1D580D9E0F32E421DCCB"
+    },
+    {
+      "path": "msa/frontend/src/assets/app.js",
+      "sha256": "504F433F1B77735B34DF88586ECB86BA86432D73DF0A685D7F8870BBB9D7ADFA"
+    },
+    {
+      "path": "msa/frontend/src/assets/style.css",
+      "sha256": "8F1B2952E88C6B047A0CCA75F3EB763C70DC6C890DBA2F3048C412DF72174D80"
+    },
+    {
+      "path": "msa/frontend/src/index.html",
+      "sha256": "A2D133D7FA43B16711655A1706529F55F5B007A0F6F60D44D6FEE12EF3DE95F6"
+    },
+    {
+      "path": "msa/frontend/src/login.html",
+      "sha256": "596DCCD271F33A5EA0A6FE6585B58D70F513F9B622FEDFF603838275F3D9CAF7"
+    },
+    {
+      "path": "msa/frontend/src/product-create.html",
+      "sha256": "DF2714CBC313752BB63D0A581AA035CB721B8A7CF6781037EB1F71DD7683251F"
+    },
+    {
+      "path": "msa/frontend/src/product-detail.html",
+      "sha256": "CE264747BCBD909066CCC888A0D88278145B9C6833BBA68A2B58E7A0F9620E64"
+    },
+    {
+      "path": "msa/frontend/src/signup.html",
+      "sha256": "70BD9DFA3C073CC29E3178322C2F8042FF101F1E8FCA84CB59C643D2305FB87A"
+    },
+    {
+      "path": "msa/member/Dockerfile",
+      "sha256": "EADFEA4B302C5ECC6BB379F9D2842F5361739EE10A92F28C99570450B8B80B1A"
+    },
+    {
+      "path": "msa/member/build.gradle",
+      "sha256": "970AD4AC7C606F62AFEA05CEC96DB6915750315ED9E17CF3D33360BE0C68197F"
+    },
+    {
+      "path": "msa/member/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "2DB75C40782F5E8BA1FC278A5574BAB070ADCCB2D21CA5A6E5ED840888448046"
+    },
+    {
+      "path": "msa/member/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "ECE18011F0AEA5DBB5D4B99F20124A936EB419E80FFAC798CD5C467DD3B3059E"
+    },
+    {
+      "path": "msa/member/gradlew",
+      "sha256": "A3648413B47EF77AF21D5EBC36C687C7D103AAEF3E17F33DE7D4F080A6F300A3"
+    },
+    {
+      "path": "msa/member/gradlew.bat",
+      "sha256": "57931B17DD228E5C24DAC90E815D0BF82477E831A4618DFAB4136F5446B42A9F"
+    },
+    {
+      "path": "msa/member/settings.gradle",
+      "sha256": "5817A678855326EADA470FB38226BDD7FF2672293825503DA859B3B2189B468F"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/MemberApplication.java",
+      "sha256": "8124F683B6809C19325663CC92DF147E65E8D2598C709695D63D2FF6E3278A86"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/common/config/SecurityConfig.java",
+      "sha256": "A90B4975E7829741CE397B2D089C610101A1352388E46648D97D6706664844D4"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/common/controller/HealthController.java",
+      "sha256": "7825233A006DFF138C7E593C431E05AF71A6BB2310CC609553FA2325F06866F9"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/common/domain/BaseTimeEntity.java",
+      "sha256": "2808A8609D826C80374D0E1EBB7ABCAEDD6AE7807377701077A036B50E77F441"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/common/service/CommonExceptionHandler.java",
+      "sha256": "EB884527560F8F7905B183A64B873E4CB32A12E00785182B03F069B4FC61EF0F"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/controller/MemberController.java",
+      "sha256": "2BC56BC8647C003087BDAA57D493377A1EB314033143479457927D9B13CB7A39"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/domain/Member.java",
+      "sha256": "4B3C9F82AC2F428AE4DA8AEC37542671D9D3661529F8E590546B04AB8A2BE0CA"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/domain/Role.java",
+      "sha256": "E3E65EB0968DA1D9340C31F9F74FD3ADE020216858AC3866D9355B01E2934506"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/dto/LoginDto.java",
+      "sha256": "E7C00D5B9155C568E47D8999CF39F86ACE14B99AACEA2B35976C2FC9DD75E110"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/dto/MemberRefreshDto.java",
+      "sha256": "917591054F6B5B1D8142BA1D64DB9D2D045648803E7A91CF7D648B047CE8361B"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/dto/MemberSaveReqDto.java",
+      "sha256": "1AAA4B8B8F89A8944DEA74D77E407A10B7C4DD528935DDCC70B5B8B0EB0D9E98"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/repository/MemberRepository.java",
+      "sha256": "3F6E56B645F20766EFEC86221DDD821CD638FD26FF37B45C917945BB5754E4AF"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/service/InitialDataLoader.java",
+      "sha256": "3ABC2AD11A022BAFAF1377A3FA159108B9A27632AD708F56CBBABA6F402F3C93"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/service/JwtTokenProvider.java",
+      "sha256": "75420FDFCA7D7D6F3254260C5668723CFB31D7819ECCD1C858139CED23C9E4F6"
+    },
+    {
+      "path": "msa/member/src/main/java/com/example/ordersystem/member/service/MemberService.java",
+      "sha256": "46FEB8B94A3844B5A4F8BF13F43E53236E54099482CE461B1398DDBADDDB190A"
+    },
+    {
+      "path": "msa/member/src/main/resources/application-prod.yml",
+      "sha256": "8780C2552DCC9276F85CC6CA6E948716CCCEBD95F7E2A758CC4245A102E5F188"
+    },
+    {
+      "path": "msa/member/src/main/resources/application.yml",
+      "sha256": "93EA38A874E62767366E83DBF390642744A40D4F78BD7EBF2DC8B34A7450114E"
+    },
+    {
+      "path": "msa/member/src/test/java/com/example/ordersystem/OrdersystemApplicationTests.java",
+      "sha256": "41B97716F407F84D8D85002D277CDF11CB5A2280FAA8E496FE5F421FB0BF0855"
+    },
+    {
+      "path": "msa/ordering/Dockerfile",
+      "sha256": "EADFEA4B302C5ECC6BB379F9D2842F5361739EE10A92F28C99570450B8B80B1A"
+    },
+    {
+      "path": "msa/ordering/build.gradle",
+      "sha256": "DA896C58CFAE30B63BAE4E8D466AEC1E579830E5A60A858F51D7A6521A20A8E9"
+    },
+    {
+      "path": "msa/ordering/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "2DB75C40782F5E8BA1FC278A5574BAB070ADCCB2D21CA5A6E5ED840888448046"
+    },
+    {
+      "path": "msa/ordering/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "ECE18011F0AEA5DBB5D4B99F20124A936EB419E80FFAC798CD5C467DD3B3059E"
+    },
+    {
+      "path": "msa/ordering/gradlew",
+      "sha256": "A3648413B47EF77AF21D5EBC36C687C7D103AAEF3E17F33DE7D4F080A6F300A3"
+    },
+    {
+      "path": "msa/ordering/gradlew.bat",
+      "sha256": "57931B17DD228E5C24DAC90E815D0BF82477E831A4618DFAB4136F5446B42A9F"
+    },
+    {
+      "path": "msa/ordering/k8s/depl_svc.yml",
+      "sha256": "BABEF38CF07E60D0F983944226CCB317E03DE4DBD2669A4842F3EB2C1ADFFFE3"
+    },
+    {
+      "path": "msa/ordering/settings.gradle",
+      "sha256": "B6CF9F0A074E03E6773B20F2808037C26882C23E0226AB53F7F75BB3112793C1"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/OrderingApplication.java",
+      "sha256": "6253159F55D0478A661B7510B12A441CC09EDD9A3AFD9BCEB7A21D744CA88856"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/common/config/RestTemplateConfig.java",
+      "sha256": "6D3708872446B5AF4EF823FB32296EDA51D95054C857C344CB9C7D211E743C86"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/common/controller/HealthController.java",
+      "sha256": "A74A8C24E76E13C8FC1ADE6F6D1B1980F4651943C264DFE671C496CDCD59F1E1"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/common/domain/BaseTimeEntity.java",
+      "sha256": "2808A8609D826C80374D0E1EBB7ABCAEDD6AE7807377701077A036B50E77F441"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/common/service/CommonExceptionHandler.java",
+      "sha256": "EB884527560F8F7905B183A64B873E4CB32A12E00785182B03F069B4FC61EF0F"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/controller/OrderingController.java",
+      "sha256": "5E43B11E246F1787BBA0949AC2CD189F583A0A6D26849F4965B4B334791484C0"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/domain/OrderStatus.java",
+      "sha256": "6F29CF34ED7DC0D980B348FCA28A07A0F55B590688C05BB17AB7B289A02DE972"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/domain/Ordering.java",
+      "sha256": "3737FC29242418B837270AF79B3F536CDEDB2761D87DCFD31D543A3A46167D3D"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/dto/OrderCreateDto.java",
+      "sha256": "EE3232935AB055EB5BA38A5D3DC44D249A894F4F06770E556B1C840F6411C181"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/dto/ProductDto.java",
+      "sha256": "AA5DE66A15688CC278ECEA0A06D1419863AA74C3DE30DB0F10C9BB5371CA40F2"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/dto/ProductUpdateStockDto.java",
+      "sha256": "DC3B47C468A8F03CD33018388C9D07CC993F63B222BDB5D8B0AB57C3DDF9B625"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/repository/OrderingRepository.java",
+      "sha256": "FC4EF9E5EF4429D9A4FB5E9914FA2E2203342F05C9272DF69444D177814FD25D"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/service/OrderingService.java",
+      "sha256": "D0EAFECF2F754ECBDC9FC7E16CCA8D58AC470D99277CA2E2385E280B964C98EC"
+    },
+    {
+      "path": "msa/ordering/src/main/java/com/example/ordersystem/ordering/service/ProductFeign.java",
+      "sha256": "F8734A687BF5771092A72BE7195EE283B206A2FE5DD9E8C81B653E2EEB47F063"
+    },
+    {
+      "path": "msa/ordering/src/main/resources/application-prod.yml",
+      "sha256": "F160777C038F1333F0F92427EDBB97DB1B0040FE5FC5F90C6E5EC5F0597C48D6"
+    },
+    {
+      "path": "msa/ordering/src/main/resources/application.yml",
+      "sha256": "93EA38A874E62767366E83DBF390642744A40D4F78BD7EBF2DC8B34A7450114E"
+    },
+    {
+      "path": "msa/ordering/src/test/java/com/example/ordersystem/OrdersystemApplicationTests.java",
+      "sha256": "41B97716F407F84D8D85002D277CDF11CB5A2280FAA8E496FE5F421FB0BF0855"
+    },
+    {
+      "path": "msa/product/Dockerfile",
+      "sha256": "EADFEA4B302C5ECC6BB379F9D2842F5361739EE10A92F28C99570450B8B80B1A"
+    },
+    {
+      "path": "msa/product/build.gradle",
+      "sha256": "CBEAD64DA430526576C663C9B7E7EAC8585004927DE968BE4A753B7B1E0D427D"
+    },
+    {
+      "path": "msa/product/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "2DB75C40782F5E8BA1FC278A5574BAB070ADCCB2D21CA5A6E5ED840888448046"
+    },
+    {
+      "path": "msa/product/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "ECE18011F0AEA5DBB5D4B99F20124A936EB419E80FFAC798CD5C467DD3B3059E"
+    },
+    {
+      "path": "msa/product/gradlew",
+      "sha256": "A3648413B47EF77AF21D5EBC36C687C7D103AAEF3E17F33DE7D4F080A6F300A3"
+    },
+    {
+      "path": "msa/product/gradlew.bat",
+      "sha256": "57931B17DD228E5C24DAC90E815D0BF82477E831A4618DFAB4136F5446B42A9F"
+    },
+    {
+      "path": "msa/product/k8s/depl_svc.yml",
+      "sha256": "43E4213F21176CA11183D6C9ADC13D1D3A92901AE50D96AADD4D17191FB3FD4E"
+    },
+    {
+      "path": "msa/product/settings.gradle",
+      "sha256": "74EABF70B2DBC0B63C4D48CA30FD5CC05BE86ECA1CFC9448B7DDBD9CEDE61D96"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/ProductApplication.java",
+      "sha256": "DC966F09C04A9628293603AB41A521C669E05C2CE311FD4D61D1DDD5E4CD4BA9"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/common/config/S3Config.java",
+      "sha256": "BC80444C4E5021A7598F79B3D6A64339F66EBA5B3B760A1C0F1AA4BFA9924895"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/common/controller/HealthController.java",
+      "sha256": "A74A8C24E76E13C8FC1ADE6F6D1B1980F4651943C264DFE671C496CDCD59F1E1"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/common/domain/BaseTimeEntity.java",
+      "sha256": "2808A8609D826C80374D0E1EBB7ABCAEDD6AE7807377701077A036B50E77F441"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/common/service/CommonExceptionHandler.java",
+      "sha256": "EB884527560F8F7905B183A64B873E4CB32A12E00785182B03F069B4FC61EF0F"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/product/controller/ProductController.java",
+      "sha256": "07193D31E773417615692F030C2E768B26EB25532408D4E0BAC6348615D641B6"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/product/domain/Product.java",
+      "sha256": "32B02F8AE04CFECFC1219AA2EF0C654DC7625FC8A194A33BF8E07F2EAB1D71B5"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/product/dto/ProductRegisterDto.java",
+      "sha256": "5983A283E01A69BEBFA7A546E6151251D663860E307314D7D24B33E5694DB2E9"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/product/dto/ProductResDto.java",
+      "sha256": "884EDA9641CD3F42ACE06D6719291511CD601B5152585D82B94D5473BEBFF54B"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/product/dto/ProductUpdateStockDto.java",
+      "sha256": "07BD16FC9E73B4F6849313EB35A2CF1A8705482A592D63EE13BBD223D6A6AA77"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/product/repository/ProductRepository.java",
+      "sha256": "4DDCF45CC5143416876D1A36708C560077790796008B136C1818DBD6309ED16F"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/product/service/ProductService.java",
+      "sha256": "DED525DBC582B923615F15FBC6529CDAF189E7863059B5DC6A31CB203C2B17CB"
+    },
+    {
+      "path": "msa/product/src/main/java/com/example/ordersystem/product/service/S3Service.java",
+      "sha256": "F1D73DC0D3DABDE322D8D7CCB7130B677D5726A9CD0FEC2D0CEDD6CF6D5F8617"
+    },
+    {
+      "path": "msa/product/src/main/resources/application-prod.yml",
+      "sha256": "9B74E146CF15CD08FD1BA8F1B49A585EF166485BA89B0851888A24B4BF2B697D"
+    },
+    {
+      "path": "msa/product/src/main/resources/application.yml",
+      "sha256": "F4DFB74B0EF76C2947438B8CD0B32508B101E666099FB75C5AD87F6C38B96739"
+    },
+    {
+      "path": "msa/product/src/test/java/com/example/ordersystem/OrdersystemApplicationTests.java",
+      "sha256": "41B97716F407F84D8D85002D277CDF11CB5A2280FAA8E496FE5F421FB0BF0855"
+    }
+  ]
+}

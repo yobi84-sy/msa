@@ -1,0 +1,7 @@
+{
+  "package": "BCrypt.Net-Next",
+  "version": "4.0.3",
+  "source": "https://api.nuget.org/v3-flatcontainer/bcrypt.net-next/4.0.3/bcrypt.net-next.4.0.3.nupkg",
+  "sha256": "5A796A01A1BDC540BC8BA3B0DD7CDF0F029C265DC0B2FE59604350BEA0E69C4F",
+  "packageSha256": "0715c7023215db106e44f51ecf30bee6385a1e2421827a93935935928dc3e83b"
+}

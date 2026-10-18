@@ -9,10 +9,10 @@
 locals {
   msa_dns_names = toset([
     "server",
-    # Grafana와 Prometheus도 기존 NGINX NLB를 사용해 별도 LoadBalancer 비용을 만들지 않음.
+    # Grafana와 Argo CD도 기존 NGINX NLB를 사용해 별도 LoadBalancer 비용을 만들지 않음.
     # 기존 server.sy84.store 레코드는 그대로 유지.
     "grafana",
-    "prometheus"
+    "argocd"
   ])
 }
 
