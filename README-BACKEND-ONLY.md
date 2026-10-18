@@ -1,3 +1,5 @@
+> **이전 단계 기록** · Backend-only 실습 당시 문서입니다. 현재 구성과 실행 범위는 [프로젝트 README](README.md)와 [실행 안내](docs/runbook.md)를 확인하세요.
+
 # MSA 1차 배포용 - Backend Only
 
 이 ZIP은 1차 MSA 배포 실습용이다.
