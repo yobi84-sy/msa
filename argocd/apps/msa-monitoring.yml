@@ -19,3 +19,5 @@ spec:
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
+    # Large dashboards cannot fit in the client-side last-applied annotation.
+    - DisableClientSideApplyMigration=true
