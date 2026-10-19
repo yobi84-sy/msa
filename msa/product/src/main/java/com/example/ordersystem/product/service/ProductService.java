@@ -24,6 +24,8 @@ public class ProductService {
     }
 
     public Product productCreate(ProductRegisterDto dto, String userId) throws IOException {
+        if(productRepository.existsBySku(dto.getSku()))throw new IllegalArgumentException("이미 등록된 품번입니다.");
+        if((dto.getImageFile()==null||dto.getImageFile().isEmpty()) && (dto.getImageUrl()==null||dto.getImageUrl().isBlank()))throw new IllegalArgumentException("상품 이미지가 필요합니다.");
         String finalImageUrl = dto.getImageUrl();
         if (dto.getImageFile() != null && !dto.getImageFile().isEmpty()) {
             finalImageUrl = s3Service.uploadFile(dto.getImageFile());
@@ -69,11 +71,17 @@ public class ProductService {
         return product;
     }
 
+    public ProductResDto edit(Long id,com.example.ordersystem.product.dto.ProductEditDto dto){
+        Product p=productRepository.lockById(id).orElseThrow(EntityNotFoundException::new);
+        if(productRepository.existsBySkuAndIdNot(dto.sku(),id))throw new IllegalArgumentException("이미 등록된 품번입니다.");
+        p.edit(dto.sku(),dto.name(),dto.category(),dto.gender(),dto.sportStyle(),dto.description(),dto.price());return toDto(p);
+    }
+    public ProductResDto restock(Long id,int quantity){Product p=productRepository.lockById(id).orElseThrow(EntityNotFoundException::new);p.restock(quantity);return toDto(p);}
     private ProductResDto toDto(Product product){
         return ProductResDto.builder()
                 .id(product.getId())
-                .name(product.getName())
-                .category(product.getCategory())
+                .name(product.getName()).sku(product.getSku())
+                .category(product.getCategory()).gender(product.getGender()).sportStyle(product.getSportStyle())
                 .description(product.getDescription())
                 .imageUrl(product.getImageUrl())
                 .price(product.getPrice())

@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 
 @Entity
+@Table(uniqueConstraints=@UniqueConstraint(name="uq_order_member_request",columnNames={"member_id","request_key"}))
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -26,6 +27,9 @@ public class Ordering extends BaseTimeEntity {
 
     @Column(nullable = false)
     private Integer quantity;
+    @Column(length=64) private String requestKey;
+    private String productName;
+    private Integer unitPrice;
 
     @Enumerated(EnumType.STRING)
     @Builder.Default

@@ -18,7 +18,7 @@ spring:
     database-platform: org.hibernate.dialect.MySQL8Dialect
     generate-ddl: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show_sql: true
 
 cloud:
@@ -30,3 +30,6 @@ cloud:
       static: ap-northeast-2
     s3:
       bucket: ${S3_BUCKET}
+
+jwt:
+  secretKey: ${JWT_SECRET_KEY}

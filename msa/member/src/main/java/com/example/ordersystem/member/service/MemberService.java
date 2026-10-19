@@ -28,11 +28,14 @@ public class MemberService {
             throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
         }
 
+        if(memberSaveReqDto.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72)throw new IllegalArgumentException("비밀번호는 UTF-8 72바이트 이하여야 합니다.");
         String password = passwordEncoder.encode(memberSaveReqDto.getPassword());
         Member member = memberRepository.save(memberSaveReqDto.toEntity(password));
         return member.getId();
     }
 
+    @Transactional(readOnly=true)
+    public Member findById(Long id){return memberRepository.findById(id).orElseThrow(()->new IllegalArgumentException("없는 회원입니다."));}
     public Member findByLoginId(String loginId){
         return memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
