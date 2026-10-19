@@ -16,6 +16,17 @@ Terraform으로 AWS 환경을 구성하고, GitHub Actions와 Argo CD로 다섯 
 
 Route 53는 주소 조회를 담당합니다. 외부 진입점은 **NLB**, 앱 내부 API 라우터는 **Spring Cloud Gateway**입니다. 상품 이미지는 별도 CloudFront → 비공개 S3 경로로 전달합니다.
 
+<details>
+<summary><strong>AWS 생성 리소스 상세 토폴로지 보기 — 서브넷·라우팅·노드·DB·권한</strong></summary>
+
+[![AWS 생성 리소스 상세 구성](docs/assets/aws-resources-detail.png)](docs/assets/aws-resources-detail.png)
+
+[**배치·역할·요청 흐름 상세 설명**](docs/aws-resource-topology.md) · [Terraform 선언 전체 목록](docs/aws-resource-inventory.md) · [확대 이미지](docs/assets/aws-resources-detail.png)
+
+실제 코드 기준의 논리 배치입니다. Terraform 직접 생성, 컨트롤러 생성, 기존 리소스 조회와 추가 알림 패키지 범위를 구분했습니다.
+
+</details>
+
 ## 진행 과정과 결과
 
 | 단계 | 구현·변경 | 확인한 결과 | 배포 기록 |
@@ -70,6 +81,7 @@ docs/                   # 구성·과정·검증·문제 해결·확장 검토
 | 문서 | 읽을 내용 |
 | --- | --- |
 | [전체 구성](docs/architecture.md) | 네트워크·서비스 역할·데이터 경로와 구성 선택 |
+| [AWS 리소스 상세](docs/aws-resource-topology.md) | 서브넷·라우팅·생성 주체·서비스 역할과 요청 흐름 |
 | [배포 과정](docs/delivery.md) | 최초 배포 → 개선 → 장애 → 복구, 이미지·GitOps 추적 |
 | [모니터링과 주문 알림](docs/observability.md) | 경보 조건, Outbox·SNS의 상태와 제약 |
 | [검증 기록](docs/validation.md) | 실제 확인, 로컬 검사, 구현만 된 부분, 남은 검증 |

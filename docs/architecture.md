@@ -4,6 +4,8 @@
 
 ![운영 구성도](assets/architecture.png)
 
+[**AWS 생성 리소스 상세 토폴로지**](aws-resource-topology.md)에서 두 AZ의 배치·라우팅·생성 주체를 확인할 수 있습니다. [Terraform 선언 전체 목록](aws-resource-inventory.md)도 함께 제공합니다.
+
 ## 네트워크와 실행 영역
 
 | 항목 | 현재 구성 | 선택과 영향 |

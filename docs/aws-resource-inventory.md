@@ -1,0 +1,96 @@
+# Terraform 리소스 선언 목록
+
+[리소스 상세 구성](aws-resource-topology.md) · [전체 구성](architecture.md)
+
+공개 저장소 `terraform/*.tf`의 최상위 `resource` / `data` 선언을 추출했습니다. **선언 블록 수는 실제 생성 리소스 수가 아닙니다.** `count`·`for_each`, 조건부 생성과 컨트롤러의 추가 생성을 고려해야 합니다. 라이브 AWS 조회·state 목록이 아니며, Helm 내부 객체와 별도 통합 패키지 알림 스택도 이 표에 포함하지 않습니다.
+
+총 86개 선언 블록: resource 73개 / data 13개. `data`는 조회이며 생성이 아닙니다.
+
+| 소스 | 구분 | 타입 | 이름 |
+| --- | --- | --- | --- |
+| [acm.tf](../terraform/acm.tf) | `data` | `aws_route53_zone` | `sy84` |
+| [acm.tf](../terraform/acm.tf) | `resource` | `aws_acm_certificate` | `server` |
+| [acm.tf](../terraform/acm.tf) | `resource` | `aws_route53_record` | `server_acm_validation` |
+| [acm.tf](../terraform/acm.tf) | `resource` | `aws_acm_certificate_validation` | `server` |
+| [ecr.tf](../terraform/ecr.tf) | `resource` | `aws_ecr_repository` | `services` |
+| [eks-addons.tf](../terraform/eks-addons.tf) | `resource` | `aws_eks_addon` | `vpc_cni` |
+| [eks-addons.tf](../terraform/eks-addons.tf) | `resource` | `aws_eks_addon` | `coredns` |
+| [eks-addons.tf](../terraform/eks-addons.tf) | `resource` | `aws_eks_addon` | `kube_proxy` |
+| [eks-alb-helm.tf](../terraform/eks-alb-helm.tf) | `resource` | `helm_release` | `alb_controller` |
+| [eks-alb-iam.tf](../terraform/eks-alb-iam.tf) | `resource` | `aws_iam_policy` | `alb_controller` |
+| [eks-alb-iam.tf](../terraform/eks-alb-iam.tf) | `data` | `aws_iam_policy_document` | `alb_controller_assume` |
+| [eks-alb-iam.tf](../terraform/eks-alb-iam.tf) | `resource` | `aws_iam_role` | `alb_controller` |
+| [eks-alb-iam.tf](../terraform/eks-alb-iam.tf) | `resource` | `aws_iam_role_policy_attachment` | `alb_controller` |
+| [eks-argocd-helm.tf](../terraform/eks-argocd-helm.tf) | `resource` | `helm_release` | `argocd` |
+| [eks-argocd-web.tf](../terraform/eks-argocd-web.tf) | `resource` | `helm_release` | `argocd_web` |
+| [eks-cert-manager-helm.tf](../terraform/eks-cert-manager-helm.tf) | `resource` | `helm_release` | `cert_manager` |
+| [eks-cert-manager-iam.tf](../terraform/eks-cert-manager-iam.tf) | `data` | `aws_iam_policy_document` | `cert_manager_assume` |
+| [eks-cert-manager-iam.tf](../terraform/eks-cert-manager-iam.tf) | `resource` | `aws_iam_role` | `cert_manager` |
+| [eks-cert-manager-iam.tf](../terraform/eks-cert-manager-iam.tf) | `data` | `aws_iam_policy_document` | `cert_manager` |
+| [eks-cert-manager-iam.tf](../terraform/eks-cert-manager-iam.tf) | `resource` | `aws_iam_policy` | `cert_manager` |
+| [eks-cert-manager-iam.tf](../terraform/eks-cert-manager-iam.tf) | `resource` | `aws_iam_role_policy_attachment` | `cert_manager` |
+| [eks-cert-manager-tls.tf](../terraform/eks-cert-manager-tls.tf) | `resource` | `helm_release` | `msa_tls` |
+| [eks-cluster-autoscaler-iam.tf](../terraform/eks-cluster-autoscaler-iam.tf) | `data` | `aws_iam_policy_document` | `cluster_autoscaler_assume` |
+| [eks-cluster-autoscaler-iam.tf](../terraform/eks-cluster-autoscaler-iam.tf) | `resource` | `aws_iam_role` | `cluster_autoscaler` |
+| [eks-cluster-autoscaler-iam.tf](../terraform/eks-cluster-autoscaler-iam.tf) | `data` | `aws_iam_policy_document` | `cluster_autoscaler` |
+| [eks-cluster-autoscaler-iam.tf](../terraform/eks-cluster-autoscaler-iam.tf) | `resource` | `aws_iam_policy` | `cluster_autoscaler` |
+| [eks-cluster-autoscaler-iam.tf](../terraform/eks-cluster-autoscaler-iam.tf) | `resource` | `aws_iam_role_policy_attachment` | `cluster_autoscaler` |
+| [eks-cluster-autoscaler-tags.tf](../terraform/eks-cluster-autoscaler-tags.tf) | `resource` | `aws_autoscaling_group_tag` | `cluster_autoscaler_enabled` |
+| [eks-cluster-autoscaler-tags.tf](../terraform/eks-cluster-autoscaler-tags.tf) | `resource` | `aws_autoscaling_group_tag` | `cluster_autoscaler_cluster` |
+| [eks-cluster-autoscaler.tf](../terraform/eks-cluster-autoscaler.tf) | `resource` | `helm_release` | `cluster_autoscaler` |
+| [eks-frontend-config.tf](../terraform/eks-frontend-config.tf) | `resource` | `kubernetes_config_map_v1` | `frontend_config` |
+| [eks-iam.tf](../terraform/eks-iam.tf) | `resource` | `aws_iam_role` | `eks_cluster` |
+| [eks-iam.tf](../terraform/eks-iam.tf) | `resource` | `aws_iam_role_policy_attachment` | `eks_cluster` |
+| [eks-iam.tf](../terraform/eks-iam.tf) | `resource` | `aws_iam_role` | `eks_node` |
+| [eks-iam.tf](../terraform/eks-iam.tf) | `resource` | `aws_iam_role_policy_attachment` | `eks_worker` |
+| [eks-iam.tf](../terraform/eks-iam.tf) | `resource` | `aws_iam_role_policy_attachment` | `eks_ecr` |
+| [eks-iam.tf](../terraform/eks-iam.tf) | `resource` | `aws_iam_role_policy_attachment` | `eks_cni` |
+| [eks-metrics-server.tf](../terraform/eks-metrics-server.tf) | `resource` | `aws_eks_addon` | `metrics_server` |
+| [eks-msa-ingress.tf](../terraform/eks-msa-ingress.tf) | `resource` | `kubernetes_ingress_v1` | `msa` |
+| [eks-namespace.tf](../terraform/eks-namespace.tf) | `resource` | `kubernetes_namespace_v1` | `soldesk` |
+| [eks-nginx-helm.tf](../terraform/eks-nginx-helm.tf) | `resource` | `helm_release` | `nginx_ingress` |
+| [eks-nodegroup.tf](../terraform/eks-nodegroup.tf) | `resource` | `aws_eks_node_group` | `main` |
+| [eks-oidc.tf](../terraform/eks-oidc.tf) | `resource` | `aws_iam_openid_connect_provider` | `eks` |
+| [eks-product-s3-iam.tf](../terraform/eks-product-s3-iam.tf) | `data` | `aws_iam_policy_document` | `product_irsa_assume` |
+| [eks-product-s3-iam.tf](../terraform/eks-product-s3-iam.tf) | `resource` | `aws_iam_role` | `product_s3` |
+| [eks-product-s3-iam.tf](../terraform/eks-product-s3-iam.tf) | `resource` | `aws_iam_policy` | `product_s3` |
+| [eks-product-s3-iam.tf](../terraform/eks-product-s3-iam.tf) | `resource` | `aws_iam_role_policy_attachment` | `product_s3` |
+| [eks.tf](../terraform/eks.tf) | `resource` | `aws_eks_cluster` | `main` |
+| [github-actions-ecr-policy.tf](../terraform/github-actions-ecr-policy.tf) | `data` | `aws_iam_policy_document` | `github_actions_ecr` |
+| [github-actions-ecr-policy.tf](../terraform/github-actions-ecr-policy.tf) | `resource` | `aws_iam_role_policy` | `github_actions_ecr` |
+| [github-actions-eks-access.tf](../terraform/github-actions-eks-access.tf) | `resource` | `aws_eks_access_entry` | `github_actions` |
+| [github-actions-eks-access.tf](../terraform/github-actions-eks-access.tf) | `resource` | `aws_eks_access_policy_association` | `github_actions_soldesk` |
+| [github-actions-eks-access.tf](../terraform/github-actions-eks-access.tf) | `data` | `aws_iam_policy_document` | `github_actions_eks_describe` |
+| [github-actions-eks-access.tf](../terraform/github-actions-eks-access.tf) | `resource` | `aws_iam_role_policy` | `github_actions_eks_describe` |
+| [github-actions-iam.tf](../terraform/github-actions-iam.tf) | `data` | `aws_iam_policy_document` | `github_actions_trust` |
+| [github-actions-iam.tf](../terraform/github-actions-iam.tf) | `resource` | `aws_iam_role` | `github_actions` |
+| [github-oidc.tf](../terraform/github-oidc.tf) | `resource` | `aws_iam_openid_connect_provider` | `github` |
+| [nat.tf](../terraform/nat.tf) | `resource` | `aws_eip` | `nat` |
+| [nat.tf](../terraform/nat.tf) | `resource` | `aws_nat_gateway` | `main` |
+| [nat.tf](../terraform/nat.tf) | `resource` | `aws_route` | `private_nat` |
+| [network.tf](../terraform/network.tf) | `resource` | `aws_vpc` | `main` |
+| [network.tf](../terraform/network.tf) | `resource` | `aws_subnet` | `public` |
+| [network.tf](../terraform/network.tf) | `resource` | `aws_subnet` | `private` |
+| [rds.tf](../terraform/rds.tf) | `resource` | `aws_db_subnet_group` | `main` |
+| [rds.tf](../terraform/rds.tf) | `resource` | `aws_db_instance` | `main` |
+| [route53-nlb.tf](../terraform/route53-nlb.tf) | `data` | `aws_lb` | `nginx_nlb` |
+| [route53-nlb.tf](../terraform/route53-nlb.tf) | `resource` | `aws_route53_record` | `msa` |
+| [routing.tf](../terraform/routing.tf) | `resource` | `aws_internet_gateway` | `main` |
+| [routing.tf](../terraform/routing.tf) | `resource` | `aws_route_table` | `public` |
+| [routing.tf](../terraform/routing.tf) | `resource` | `aws_route` | `public_internet` |
+| [routing.tf](../terraform/routing.tf) | `resource` | `aws_route_table_association` | `public` |
+| [routing.tf](../terraform/routing.tf) | `resource` | `aws_route_table` | `private` |
+| [routing.tf](../terraform/routing.tf) | `resource` | `aws_route_table_association` | `private` |
+| [s3-cloudfront.tf](../terraform/s3-cloudfront.tf) | `resource` | `aws_cloudfront_origin_access_control` | `product_images` |
+| [s3-cloudfront.tf](../terraform/s3-cloudfront.tf) | `resource` | `aws_cloudfront_distribution` | `product_images` |
+| [s3-cloudfront.tf](../terraform/s3-cloudfront.tf) | `data` | `aws_iam_policy_document` | `product_images_cloudfront` |
+| [s3-cloudfront.tf](../terraform/s3-cloudfront.tf) | `resource` | `aws_s3_bucket_policy` | `product_images_cloudfront` |
+| [s3.tf](../terraform/s3.tf) | `data` | `aws_caller_identity` | `current` |
+| [s3.tf](../terraform/s3.tf) | `resource` | `aws_s3_bucket` | `product_images` |
+| [s3.tf](../terraform/s3.tf) | `resource` | `aws_s3_bucket_public_access_block` | `product_images` |
+| [s3.tf](../terraform/s3.tf) | `resource` | `aws_s3_bucket_server_side_encryption_configuration` | `product_images` |
+| [security.tf](../terraform/security.tf) | `resource` | `aws_security_group` | `rds` |
+| [security.tf](../terraform/security.tf) | `resource` | `aws_vpc_security_group_ingress_rule` | `rds_mysql` |
+| [yobi-alerts.tf](../terraform/yobi-alerts.tf) | `resource` | `aws_sns_topic` | `yobi_alerts` |
+| [yobi-alerts.tf](../terraform/yobi-alerts.tf) | `resource` | `aws_sns_topic_subscription` | `yobi_email` |
+| [yobi-alerts.tf](../terraform/yobi-alerts.tf) | `resource` | `aws_cloudwatch_metric_alarm` | `rds_cpu` |
