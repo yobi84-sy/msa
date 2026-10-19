@@ -16,8 +16,7 @@ Terraform으로 AWS 환경을 구성하고, GitHub Actions와 Argo CD로 다섯 
 
 Route 53는 주소 조회를 담당합니다. 외부 진입점은 **NLB**, 앱 내부 API 라우터는 **Spring Cloud Gateway**입니다. 상품 이미지는 별도 CloudFront → 비공개 S3 경로로 전달합니다.
 
-<details>
-<summary><strong>AWS 생성 리소스 상세 토폴로지 보기 — 서브넷·라우팅·노드·DB·권한</strong></summary>
+### AWS 생성 리소스 상세 토폴로지
 
 [![AWS 생성 리소스 상세 구성](docs/assets/aws-resources-detail.png)](docs/assets/aws-resources-detail.png)
 
@@ -25,7 +24,6 @@ Route 53는 주소 조회를 담당합니다. 외부 진입점은 **NLB**, 앱 �
 
 실제 코드 기준의 논리 배치입니다. Terraform 직접 생성, 컨트롤러 생성, 기존 리소스 조회와 추가 알림 패키지 범위를 구분했습니다.
 
-</details>
 
 ## 진행 과정과 결과
 
