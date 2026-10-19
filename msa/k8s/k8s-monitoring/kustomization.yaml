@@ -13,3 +13,5 @@ resources:
   - grafana-depl_svc.yml
   - monitoring-https.yml
   - monitoring-Ingress.yml
+
+  - alerts-resources.yml
