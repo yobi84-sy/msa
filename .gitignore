@@ -37,3 +37,17 @@
 .yobi-local/
 # Generated Windows shortcut contains machine-specific absolute paths.
 /AWS Deployment Manager V1.lnk
+
+# Portable-only UI, patch bundles, verification and local personal settings.
+gui/
+patches/
+tools/
+/README.md
+/PACKAGE_CONTENTS.json
+/PACKAGE_VERIFICATION.md
+
+# Local offline presentation
+/presentation/
+/Start-Presentation.vbs
+
+/구동 애니메이션.html

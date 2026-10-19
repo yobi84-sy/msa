@@ -6,6 +6,4 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface OrderingRepository extends JpaRepository<Ordering, Long> {
-    java.util.Optional<Ordering> findByMemberIdAndRequestKey(Long memberId,String requestKey);
-    java.util.List<Ordering> findByMemberIdOrderByIdDesc(Long memberId);
 }

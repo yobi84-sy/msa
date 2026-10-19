@@ -9,3 +9,9 @@ variable "db_password_version" {
   type    = number
   default = 1
 }
+
+# Delete-only plans do not supply a write-only credential or its update version.
+variable "db_password_write_enabled" {
+  type    = bool
+  default = true
+}

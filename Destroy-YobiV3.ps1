@@ -52,12 +52,20 @@ function Get-Field($Object, [string]$Name, $Default = $null) {
     return $p.Value
 }
 function Invoke-Checked([string]$Exe, [string[]]$Arguments) {
-    if ($Exe -eq 'terraform' -and $Arguments -contains 'apply') {
-        $liveArgs=New-Object 'System.Collections.Generic.List[string]'
-        $liveArgs.AddRange([string[]]$Arguments);$liveArgs.Insert($liveArgs.IndexOf('apply')+1,'-json')
-        & $Exe @($liveArgs.ToArray()) | ForEach-Object { Receive-YobiTerraformLine ([string]$_) }
-    } else { & $Exe @Arguments | ForEach-Object { Write-Host $_ } }
-    if ($LASTEXITCODE -ne 0) { throw "$Exe failed (exit $LASTEXITCODE). See preceding error." }
+    $null=Get-Command $Exe -ErrorAction Stop
+    $previousPreference=$ErrorActionPreference
+    $global:LASTEXITCODE=$null
+    try {
+        # PS 5.1 turns redirected native stderr into ErrorRecords. Keep consuming
+        # both streams, then fail on the actual exit code after logging diagnostics.
+        $ErrorActionPreference='Continue'
+        if ($Exe -eq 'terraform' -and $Arguments -contains 'apply') {
+            $liveArgs=New-Object 'System.Collections.Generic.List[string]'
+            $liveArgs.AddRange([string[]]$Arguments);$liveArgs.Insert($liveArgs.IndexOf('apply')+1,'-json')
+            & $Exe @($liveArgs.ToArray()) 2>&1 | ForEach-Object { Receive-YobiTerraformLine ([string]$_) }
+        } else { & $Exe @Arguments 2>&1 | ForEach-Object { Write-Host ([string]$_) } }
+    } finally { $ErrorActionPreference=$previousPreference }
+    if ($null -eq $LASTEXITCODE -or $LASTEXITCODE -ne 0) { throw "$Exe failed (exit $LASTEXITCODE). See preceding error." }
 }
 function Read-Native([string]$Exe, [string[]]$Arguments) {
     $result = @(& $Exe @Arguments)
@@ -87,7 +95,10 @@ function Assert-Identity {
 }
 function Tf-Args([string[]]$Arguments) {
     # Explicit -var takes precedence over local tfvars and TF_VAR_* values.
-    return @("-chdir=$TerraformDir") + $Arguments + @("-var=aws_profile=$AwsProfile","-var=aws_region=$AwsRegion")
+    $result=@("-chdir=$TerraformDir") + $Arguments + @("-var=aws_profile=$AwsProfile","-var=aws_region=$AwsRegion")
+    # Destroy needs neither write-only password nor its update version.
+    if($Arguments -contains '-destroy'){$result+=,'-var=db_password_write_enabled=false'}
+    return $result
 }
 function Get-StateResources {
     $raw = Read-Native 'terraform' @("-chdir=$TerraformDir",'show','-json')
@@ -595,6 +606,8 @@ try {
         Send-YobiEvent 'phase' 'app' '' '' 'Argo CD 동기화 중지 및 앱 쓰기 작업 종료'
         Stop-GitOps
         Invoke-YobiDataBackup $backupResources $rdsMode $s3Mode
+        . (Join-Path $PSScriptRoot 'YobiV3.Notifications.ps1')
+        Remove-YobiNotificationInfrastructure $Root
         Remove-NlbServiceSafely $vpcId ([string]$clusterInfo.arn) $state
     } elseif ($liveVpc) {
         Invoke-YobiDataBackup $backupResources $rdsMode $s3Mode

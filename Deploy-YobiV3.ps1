@@ -25,6 +25,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'YobiV3.Rollouts.ps1')
 . (Join-Path $PSScriptRoot 'YobiV3.FirstInstall.ps1')
 . (Join-Path $PSScriptRoot 'YobiV3.Catalog.ps1')
+. (Join-Path $PSScriptRoot 'YobiV3.InstallNotifications.ps1')
 $PSNativeCommandUseErrorActionPreference = $false
 $OutputEncoding = New-Object Text.UTF8Encoding($false)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -295,6 +296,8 @@ function Assert-Repo {
 }
 function Test-PublishPath([string]$Path) {
     if($Path -cmatch '^first-install-baseline/(source\.zip|manifest\.json)$'){return $true}
+    if($Path -cmatch '^(Configure-YobiAlerts|YobiV3\.InstallNotifications|YobiV3\.Notifications)\.ps1$'){return $true}
+    if($Path -cmatch '^operations/notifications/(README\.md|(?:external_probe|prepare_manifests|load_test)\.py|terraform/(?:main|external-probe)\.tf|terraform/\.terraform\.lock\.hcl)$'){return $true}
     if ($Path -match '[\x00-\x1f"\\]' -or $Path -match '^/' -or $Path -match '(^|/)\.\.(/|$)') { return $false }
     if ($Path -match '(?i)(^|/)(\.git|\.terraform|\.gradle|build|bin|node_modules|logs|sessions)/|\.tfstate|\.tfvars|\.tfplan|\.env($|\.)|\.bak($|\.)|\.before-|\.(zip|7z|pem|key|pfx|p12|log|db)$') { return $false }
     if($Path -ceq 'scripts/prepare-storefront-manifests.py' -or $Path -cmatch '^msa/frontend/src/assets/[A-Za-z0-9_.-]+\.(png|jpg|jpeg|webp)$'){return $true}
@@ -402,11 +405,22 @@ function Wait-ExactRun($State) {
 function Get-RemoteRevision {
     return (Read-Native 'gh' @('api',"repos/$GitHubRepo/git/ref/heads/yobi-v1",'--jq','.object.sha')).Trim()
 }
+function Read-GitHubYaml([string]$Path,[string]$Revision) {
+    if($Revision -cnotmatch '^[0-9a-f]{40}$'){throw 'GitHub YAML requires a full verified commit SHA.'}
+    if($Path -cnotmatch '^(argocd/root-app\.yml|msa/(apigateway|member|product|ordering|frontend)/k8s/depl_svc\.yml)$'){
+        throw 'GitHub YAML path is outside the reviewed deployment manifests.'
+    }
+    # Request readable YAML directly, rather than decoding a remote Base64 payload.
+    $yaml=Read-Native 'gh' @('api',"repos/$GitHubRepo/contents/$Path`?ref=$Revision",'-H','Accept: application/vnd.github.raw+json')
+    if([string]::IsNullOrWhiteSpace($yaml) -or $yaml -cnotmatch '(?m)^apiVersion:\s*\S+'){
+        throw 'GitHub did not return a readable Kubernetes manifest.'
+    }
+    return $yaml
+}
 function Assert-ImagesForRevision([string]$Revision,[string]$ExpectedTag) {
     foreach ($service in $Services) {
         $repository = "${RepositoryPrefix}-${service}"
-        $b64 = Read-Native 'gh' @('api',"repos/$GitHubRepo/contents/msa/$service/k8s/depl_svc.yml`?ref=$Revision",'--jq','.content')
-        $yaml = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64))
+        $yaml = Read-GitHubYaml "msa/$service/k8s/depl_svc.yml" $Revision
         $pattern = '(?m)^\s*image:\s*' + [regex]::Escape("$Registry/$repository") + ':([^\s#]+)\s*$'
         $tags = @([regex]::Matches($yaml,$pattern))
         if ($tags.Count -ne 1 -or $tags[0].Groups[1].Value -cne $ExpectedTag) { throw "Git revision $Revision has unexpected tag for $service. Concurrent publish or manifest drift; stop." }
@@ -471,6 +485,9 @@ foreach ($p in $sourceChanges) { Write-Host "[PUBLISH] $p" }
 if (-not $Execute) { Write-Host '[CHECK ONLY] No init/apply/commit/push/Secrets/deployment performed. Add -Execute for reviewed execution.'; return }
 if ($Resume -and -not (Test-Path -LiteralPath $CheckpointPath)) { throw 'No checkpoint for this project. Use a fresh deployment.' }
 if ((Read-Host 'Type DEPLOY to approve infrastructure costs, reviewed source publish and full GitHub build') -cne 'DEPLOY') { throw 'Cancelled.' }
+# Validate/load the reviewed dependency before any infrastructure changes.
+. (Join-Path $PSScriptRoot 'YobiV3.Credentials.ps1')
+Initialize-YobiBcrypt
 Enter-ProjectLock
 try {
     $priorDbInput=$env:TF_VAR_db_password_wo
@@ -557,7 +574,7 @@ try {
             Assert-PublishChanges $staged
             Run-Git @('diff','--cached','--check')
             Run-Git @('diff','--cached','--stat')
-            if ((Read-Host 'Type PUSH YOBI-V1 to publish reviewed sources; push CI is skipped and dispatch will build all five services') -cne 'PUSH YOBI-V1') { throw 'Publish cancelled. Staged files remain for review.' }
+            if ((Read-Host 'Type PUSH to publish reviewed sources; push CI is skipped and dispatch will build all five services') -cne 'PUSH') { throw 'Publish cancelled. Staged files remain for review.' }
             Run-Git @('-c','user.name=Yobi Installer','-c','user.email=yobi-installer@local.invalid','commit','--allow-empty','-m','ci: prepare V3 full deployment [skip ci]')
             Run-Git @('push','origin','HEAD:refs/heads/yobi-v1')
         }
@@ -577,8 +594,8 @@ try {
         if (Read-Native 'kubectl' @('get','application',$n,'-n','argocd','--ignore-not-found','-o','name')) { throw "Legacy Application ownership conflict: $n" }
     }
     # Apply root from the SAME verified Git revision, not a possibly stale local manifest.
-    $rootB64 = Read-Native 'gh' @('api',"repos/$GitHubRepo/contents/argocd/root-app.yml`?ref=$revision",'--jq','.content')
-    [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($rootB64)) | & kubectl apply -f -
+    $rootYaml = Read-GitHubYaml 'argocd/root-app.yml' $revision
+    $rootYaml | & kubectl apply -f -
     Assert-ExitCode 'ArgoCD root bootstrap'
     Send-YobiEvent 'started' 'argo' 'argocd/sync' 'update'
     foreach ($n in @('msa-root','yobi-v1-msa','msa-monitoring')) { Wait-Revision $n $revision }
@@ -613,6 +630,8 @@ try {
     if ((Get-RemoteRevision) -cne $revision) { throw 'Branch changed during final checks. Revalidate before reporting success.' }
     Write-Host "[SUCCESS] GitOps=$revision Actions=$($cp.runId)/$($cp.attempt); HTTPS/API verified. ArgoCD continues watching yobi-v1."
     Write-Host '[NOTE] Login/order/upload, HPA metrics and Prometheus target health still require their own operational checks.'
+    Invoke-YobiInstallNotifications $Root
+    Write-Host '[INSTALL COMPLETE] Services and monitoring installed. Confirm pending SNS emails before order-alert patches.'
 } finally {
     [Environment]::SetEnvironmentVariable('TF_VAR_db_password_wo',$priorDbInput,'Process')
     [Environment]::SetEnvironmentVariable('TF_VAR_yobi_alert_email',$priorEmailInput,'Process')

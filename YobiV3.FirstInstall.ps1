@@ -43,6 +43,21 @@ function Restore-YobiFirstInstallBaseline([string]$Root,[string]$Checkout){
     }
     Write-Host ('[BASELINE] First-install application restored in isolated clone; '+$files.Count+' verified files. Original checkout and main untouched.')
 }
+function Restore-YobiFirstInstallMonitoring([string]$Root,[string]$Checkout){
+    Assert-YobiFirstInstallCheckout $Root $Checkout
+    $source=Join-Path $Root 'msa/k8s/k8s-monitoring'
+    if(-not(Test-Path -LiteralPath $source -PathType Container)){return}
+    $target=Join-Path $Checkout 'msa/k8s/k8s-monitoring'
+    [void][IO.Directory]::CreateDirectory($target)
+    foreach($file in Get-ChildItem -LiteralPath $source -File){
+        if($file.Name -notmatch '\.ya?ml$' -or $file.Name -ceq 'alerts-resources.yml'){continue}
+        [IO.File]::WriteAllBytes((Join-Path $target $file.Name),[IO.File]::ReadAllBytes($file.FullName))
+    }
+    # Only this known generated overlay is removed, only in the owned install clone.
+    $oldOverlay=Join-Path $target 'alerts-resources.yml'
+    if(Test-Path -LiteralPath $oldOverlay -PathType Leaf){[IO.File]::Delete($oldOverlay)}
+    Write-Host '[BASELINE] Canonical monitoring restored before new notification infrastructure is configured.'
+}
 function New-YobiFirstInstallCheckout([string]$Root,[string[]]$Changes){
     $origin=(Read-Native 'git' @('-C',$Root,'remote','get-url','origin')).Trim()
     if($origin -cnotin @('https://github.com/yobi84-sy/msa.git','git@github.com:yobi84-sy/msa.git')){throw 'Unexpected first-install origin.'}
@@ -58,5 +73,6 @@ function New-YobiFirstInstallCheckout([string]$Root,[string[]]$Changes){
         elseif(Test-Path -LiteralPath $dest -PathType Leaf){Remove-Item -LiteralPath $dest -Force}
     }
     Restore-YobiFirstInstallBaseline $Root $checkout
+    Restore-YobiFirstInstallMonitoring $Root $checkout
     return $checkout
 }

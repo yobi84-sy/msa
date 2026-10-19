@@ -27,5 +27,6 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
   threshold           = 80
   dimensions          = { DBInstanceIdentifier = aws_db_instance.main.identifier }
   alarm_actions       = [aws_sns_topic.yobi_alerts.arn]
+  ok_actions          = [aws_sns_topic.yobi_alerts.arn]
   treat_missing_data  = "missing"
 }

@@ -11,17 +11,31 @@ function Set-YobiDbInput {
         $env:TF_VAR_db_password_wo=$plain
     } finally { $secure.Dispose(); Remove-Variable plain -ErrorAction SilentlyContinue }
 }
+function Initialize-YobiBcrypt {
+    $dll=Join-Path $PSScriptRoot 'lib/BCrypt.Net-Next.dll'
+    $manifest=Join-Path $PSScriptRoot 'lib/manifest.json'
+    if(-not [IO.File]::Exists($dll) -or -not [IO.File]::Exists($manifest)){throw 'Missing reviewed BCrypt dependency.'}
+    # Pinned to the reviewed official NuGet 4.0.3 net462 DLL; never trust a changed manifest alone.
+    $reviewed='5A796A01A1BDC540BC8BA3B0DD7CDF0F029C265DC0B2FE59604350BEA0E69C4F'
+    $meta=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json
+    $stream=[IO.File]::OpenRead($dll);$sha=[Security.Cryptography.SHA256]::Create()
+    try {$actual=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','')}finally{$sha.Dispose();$stream.Dispose()}
+    if($meta.sha256 -cne $reviewed -or $actual -cne $reviewed){throw 'BCrypt dependency checksum mismatch; file remains blocked.'}
+    # Internet ZIP extraction can mark this exact known dependency as remote.
+    # Only its download-zone marker is removed, after verification. No recursive unblocking or AV exclusions.
+    $zone=Get-Item -LiteralPath $dll -Stream Zone.Identifier -ErrorAction SilentlyContinue
+    if($null -ne $zone){
+        Microsoft.PowerShell.Utility\Unblock-File -LiteralPath $dll -ErrorAction Stop
+        Write-Host '[DEPENDENCY] Reviewed BCrypt DLL download marker cleared after SHA256 verification.'
+    }
+    if(-not ('BCrypt.Net.BCrypt' -as [type])){Add-Type -Path $dll -ErrorAction Stop}
+}
 function Ensure-YobiArgoPassword {
     $existing=(Read-Native 'kubectl' @('get','secret','argocd-secret','-n','argocd','-o','json'))|ConvertFrom-Json
     if ($existing.metadata.PSObject.Properties['annotations'] -and $existing.metadata.annotations.PSObject.Properties['yobi.dev/operator-password']) {
         Write-Host '[ARGO] Operator password already configured; preserved.'; return
     }
-    $dll=Join-Path $PSScriptRoot 'lib/BCrypt.Net-Next.dll'
-    $manifest=Join-Path $PSScriptRoot 'lib/manifest.json'
-    if (-not (Test-Path -LiteralPath $dll) -or -not (Test-Path -LiteralPath $manifest)) { throw 'Missing reviewed BCrypt dependency.' }
-    $expected=(Get-Content -LiteralPath $manifest -Raw|ConvertFrom-Json).sha256
-    if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -cne $expected) { throw 'BCrypt dependency checksum mismatch.' }
-    Add-Type -Path $dll
+    Initialize-YobiBcrypt
     $secure=Read-Host 'ARGOCD_ADMIN_PASSWORD' -AsSecureString
     try {
         $plain=Convert-YobiSecureToPlain $secure

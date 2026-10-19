@@ -24,8 +24,6 @@ public class ProductService {
     }
 
     public Product productCreate(ProductRegisterDto dto, String userId) throws IOException {
-        if(productRepository.existsBySku(dto.getSku()))throw new IllegalArgumentException("이미 등록된 품번입니다.");
-        if((dto.getImageFile()==null||dto.getImageFile().isEmpty()) && (dto.getImageUrl()==null||dto.getImageUrl().isBlank()))throw new IllegalArgumentException("상품 이미지가 필요합니다.");
         String finalImageUrl = dto.getImageUrl();
         if (dto.getImageFile() != null && !dto.getImageFile().isEmpty()) {
             finalImageUrl = s3Service.uploadFile(dto.getImageFile());
@@ -43,7 +41,6 @@ public class ProductService {
     public ProductResDto productDetail(Long id){
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("없는 상품입니다."));
-        if(Boolean.TRUE.equals(product.getHideWhenSoldOut()) && product.getStockQuantity()<1)throw new EntityNotFoundException("없는 상품입니다.");
         return toDto(product);
     }
 
@@ -51,7 +48,6 @@ public class ProductService {
     public List<ProductResDto> productList(){
         return productRepository.findAllByOrderByIdDesc()
                 .stream()
-                .filter(p->!Boolean.TRUE.equals(p.getHideWhenSoldOut()) || p.getStockQuantity()>0)
                 .map(this::toDto)
                 .toList();
     }
@@ -73,20 +69,11 @@ public class ProductService {
         return product;
     }
 
-    public ProductResDto edit(Long id,com.example.ordersystem.product.dto.ProductEditDto dto){
-        Product p=productRepository.lockById(id).orElseThrow(EntityNotFoundException::new);
-        if(productRepository.existsBySkuAndIdNot(dto.sku(),id))throw new IllegalArgumentException("이미 등록된 품번입니다.");
-        p.edit(dto.sku(),dto.name(),dto.category(),dto.gender(),dto.sportStyle(),dto.description(),dto.price());return toDto(p);
-    }
-    @Transactional(readOnly=true)
-    public List<ProductResDto> adminList(){return productRepository.findAllByOrderByIdDesc().stream().map(this::toDto).toList();}
-    public ProductResDto soldOutVisibility(Long id,boolean hide){Product p=productRepository.lockById(id).orElseThrow(EntityNotFoundException::new);p.setSoldOutVisibility(hide);return toDto(p);}
-    public ProductResDto restock(Long id,int quantity){Product p=productRepository.lockById(id).orElseThrow(EntityNotFoundException::new);p.restock(quantity);return toDto(p);}
     private ProductResDto toDto(Product product){
         return ProductResDto.builder()
                 .id(product.getId())
-                .name(product.getName()).sku(product.getSku())
-                .hideWhenSoldOut(Boolean.TRUE.equals(product.getHideWhenSoldOut())).category(product.getCategory()).gender(product.getGender()).sportStyle(product.getSportStyle())
+                .name(product.getName())
+                .category(product.getCategory())
                 .description(product.getDescription())
                 .imageUrl(product.getImageUrl())
                 .price(product.getPrice())

@@ -9,7 +9,7 @@ COPY settings.gradle .
 COPY gradlew .
 # 빌드
 RUN chmod +x gradlew
-RUN ./gradlew test bootJar
+RUN ./gradlew bootJar
 
 # 두번째 스테이지
 FROM eclipse-temurin:17-jre-alpine

@@ -11,12 +11,8 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ProductResDto {
     private Long id;
-    private String sku;
     private String name;
     private String category;
-    private String gender;
-    private String sportStyle;
-    private boolean hideWhenSoldOut;
     private String description;
     private String imageUrl;
     private int price;

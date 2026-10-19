@@ -1,46 +1,267 @@
-'use strict';
-const $=id=>document.getElementById(id);
-const money=n=>`${Number(n).toLocaleString('ko-KR')}원`;
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function getAuth(){try{return JSON.parse(localStorage.getItem('auth')||'null')}catch{localStorage.removeItem('auth');return null}}
-function saveAuth(a){localStorage.setItem('auth',JSON.stringify(a))}
-function clearAuth(){localStorage.removeItem('auth')}
-function msg(id,text,error=false){if($(id)){$(id).textContent=text;$(id).className=error?'message-error':'message-success'}}
-async function api(path,options={}){
- const headers=new Headers(options.headers||{});const token=getAuth()?.token;
- if(token)headers.set('Authorization',`Bearer ${token}`);
- if(options.body&&!(options.body instanceof FormData))headers.set('Content-Type','application/json');
- const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);let res,text;
- try{res=await fetch(path,{...options,headers,signal:controller.signal});text=await res.text()}catch(error){if(error.name==='AbortError')throw new Error('응답이 지연되고 있습니다. 같은 요청으로 다시 시도해주세요.');throw error}finally{clearTimeout(timer)}let data;
- try{data=text?JSON.parse(text):null}catch{data=null}
- if(!res.ok){const e=new Error(data?.message||(res.status===401?'로그인이 필요합니다.':res.status===403?'관리자 권한이 필요합니다.':'요청을 처리하지 못했습니다. 다시 시도해주세요.'));e.status=res.status;throw e}return data??text;
+const API_BASE = '';
+const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=900&q=80';
+
+function saveAuth(data) {
+  localStorage.setItem('auth', JSON.stringify(data));
 }
-function safeImage(url){if(!url)return '';try{const u=new URL(url,location.origin);if(!['https:','http:'].includes(u.protocol))return '';if(u.hostname==='sales-mall-dev-product-images-021158485482-ap-northeast-2.s3.ap-northeast-2.amazonaws.com'&&u.pathname.startsWith('/products/')){const cdn=window.YOBI_CONFIG?.cloudfrontDomain;return cdn&&/^[A-Za-z0-9.-]+$/.test(cdn)?`https://${cdn}${u.pathname}`:''}return u.href}catch{return ''}}
-function image(p){const src=safeImage(p.imageUrl);return src?`<img src="${esc(src)}" alt="${esc(p.name)}" loading="lazy">`:'<span class="image-empty">adidas mall</span>'}
-function fallback(root=document){root.querySelectorAll('img:not(.brand img)').forEach(img=>img.addEventListener('error',()=>{const el=document.createElement('span');el.className='image-empty';el.textContent='IMAGE UNAVAILABLE';img.replaceWith(el)},{once:true}))}
-async function header(){let a=getAuth();if(a?.token){try{a={...a,...await api('/member-service/member/me')};saveAuth(a)}catch(e){if([401,403].includes(e.status)){clearAuth();a=null}else{a={...a,role:'UNVERIFIED'}}}}
- document.querySelectorAll('[data-auth-only]').forEach(el=>el.hidden=!a?.token);document.querySelectorAll('[data-admin-only]').forEach(el=>el.hidden=a?.role!=='ADMIN');$('userBox').replaceChildren();
- if(a?.token){const name=document.createElement('span');name.className='nickname';name.textContent=`${a.nickname||a.loginId||'회원'}님`;const b=document.createElement('button');b.type='button';b.textContent='로그아웃';b.onclick=()=>{clearAuth();location.assign('/')};$('userBox').append(name,b)}else{$('userBox').innerHTML='<a href="/login.html">로그인</a><a href="/signup.html">회원가입</a>'}return a;
+
+function getAuth() {
+  const raw = localStorage.getItem('auth');
+  return raw ? JSON.parse(raw) : null;
 }
-function guard(a,admin=false){if(!a?.token){location.replace('/login.html');return false}if(admin&&a.role!=='ADMIN'){const p=document.createElement('p');p.className='empty';p.textContent='관리자만 이용할 수 있습니다.';document.querySelector('main').replaceChildren(p);return false}return true}
-function submit(form,handler,messageId='formMessage'){form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type=submit]');b.disabled=true;msg(messageId,'처리 중입니다.');try{await handler(new FormData(form))}catch(err){msg(messageId,err.message,true)}finally{b.disabled=false}})}
-async function catalog(){let products;try{products=await api('/product-service/product/list');if(!Array.isArray(products))throw new Error('상품 목록 응답을 확인할 수 없습니다.')}catch(e){msg('catalogMessage',e.message,true);$('productCount').textContent='';return}
- const paramsIn=new URLSearchParams(location.search);const selected={gender:paramsIn.get('gender')||'',category:paramsIn.get('category')||'',sportStyle:paramsIn.get('sportStyle')||''};$('searchInput').value=paramsIn.get('q')||'';
- const axes=[['gender','genders',['MEN','WOMEN','KIDS','UNISEX']],['category','categories',['신발','의류','용품']],['sportStyle','sportStyles',['러닝','트레이닝','오리지널스','축구','스포츠웨어']]];
- const draw=()=>{for(const [key,id,values] of axes){$(id).replaceChildren();for(const value of ['',...values]){const b=document.createElement('button');b.type='button';b.textContent=value||'전체';b.classList.toggle('active',selected[key]===value);b.setAttribute('aria-pressed',String(selected[key]===value));b.onclick=()=>{selected[key]=value;draw()};$(id).append(b)}}
- const q=$('searchInput').value.trim().toLocaleLowerCase();const rows=products.filter(p=>axes.every(([key])=>!selected[key]||p[key]===selected[key]||(key==='gender'&&['MEN','WOMEN'].includes(selected[key])&&p.gender==='UNISEX'))&&(!q||`${p.name} ${p.sku||''}`.toLocaleLowerCase().includes(q)));const sort=$('sortSelect').value;rows.sort((a,b)=>sort==='low'?a.price-b.price||b.id-a.id:sort==='high'?b.price-a.price||b.id-a.id:b.id-a.id);$('productCount').textContent=`${rows.length}개의 상품`;
- const params=new URLSearchParams();for(const [key] of axes)if(selected[key])params.set(key,selected[key]);if(q)params.set('q',q);history.replaceState(null,'',`${location.pathname}${params.size?'?'+params:''}${location.hash}`);
- $('productList').innerHTML=rows.length?rows.map(p=>`<a class="product-card" href="/product-detail.html?id=${Number(p.id)}"><div class="product-image">${image(p)}<span class="stock-badge ${p.stockQuantity<1?'soldout':''}">${p.stockQuantity<1?'품절':'재고 '+Number(p.stockQuantity)}</span></div><div class="product-price">${money(p.price)}</div><div class="product-name">${esc(p.name)}</div><div class="product-meta">${[p.gender,p.category,p.sportStyle,p.sku].filter(Boolean).map(esc).join(' · ')}</div></a>`).join(''):'<div class="empty">조건에 맞는 상품이 없습니다.<br>다른 검색어나 카테고리를 선택해주세요.</div>';fallback($('productList'))};
- $('searchForm').onsubmit=e=>{e.preventDefault();draw()};$('sortSelect').onchange=draw;const first=products.find(p=>safeImage(p.imageUrl));if(first){$('heroProduct').src=safeImage(first.imageUrl);$('heroProduct').hidden=false;$('heroProduct').onerror=()=>{$('heroProduct').hidden=true}}draw();
+
+function clearAuth() {
+  localStorage.removeItem('auth');
 }
-async function detail(auth){const id=new URLSearchParams(location.search).get('id');if(!/^[1-9]\d*$/.test(id||''))throw new Error('올바른 상품 번호가 필요합니다.');const p=await api(`/product-service/product/${id}`);
- $('productDetail').innerHTML=`<div class="detail-media">${image(p)}</div><div class="detail-info"><p class="eyebrow">${[p.gender,p.category,p.sportStyle].filter(Boolean).map(esc).join(' · ')||'ADIDAS MALL'}</p><h1>${esc(p.name)}</h1><p class="product-meta">${esc(p.sku||'기존 등록 상품')}</p><p class="detail-price">${money(p.price)}</p><p>현재 재고 <strong>${Number(p.stockQuantity)}</strong>개</p><form id="purchaseForm"><label>수량<input name="quantity" type="number" value="1" min="1" max="${Math.min(1000,Number(p.stockQuantity))}" step="1" required ${p.stockQuantity<1?'disabled':''}></label><button class="button" type="submit" ${p.stockQuantity<1?'disabled':''}>${p.stockQuantity<1?'품절':'주문하기'} <span>→</span></button><p id="purchaseMessage" role="status"></p></form><div class="detail-description">${esc(p.description||'상품 설명이 아직 등록되지 않았습니다.')}</div><a class="text-link" href="/#collection">전체 상품 보기 →</a></div>`;fallback($('productDetail'));
- submit($('purchaseForm'),async data=>{if(!guard(auth))return;const quantity=Number(data.get('quantity'));const storageKey=`order-request:${auth.id}:${id}:${quantity}`;let key=sessionStorage.getItem(storageKey);if(!key){key=crypto.randomUUID();sessionStorage.setItem(storageKey,key)}const o=await api('/ordering-service/ordering/create',{method:'POST',headers:{'Idempotency-Key':key},body:JSON.stringify({productId:Number(id),productCount:quantity})});sessionStorage.removeItem(storageKey);msg('purchaseMessage',`주문 #${o.id} 완료`);location.assign('/orders.html')},'purchaseMessage');
+
+function getToken() {
+  const auth = getAuth();
+  return auth ? auth.token : null;
 }
-function login(){submit($('loginForm'),async data=>{const result=await api('/member-service/member/doLogin',{method:'POST',body:JSON.stringify(Object.fromEntries(data))});saveAuth(result);location.assign('/')})}
-function signup(){$('domainSelect').onchange=()=>{$('emailDomain').value=$('domainSelect').value;$('emailDomain').readOnly=!!$('domainSelect').value};submit($('signupForm'),async data=>{const p=String(data.get('password'));if(p!==data.get('passwordConfirm'))throw new Error('비밀번호 확인이 일치하지 않습니다.');if(p.length<12||!/[0-9]/.test(p)||!Array.from(p).some(c=>c.charCodeAt(0)>=33&&c.charCodeAt(0)<=126&&!/[A-Za-z0-9]/.test(c))||new TextEncoder().encode(p).length>72)throw new Error('비밀번호 조건을 확인해주세요.');const email=`${$('emailLocal').value.trim()}@${$('emailDomain').value.trim()}`;if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))throw new Error('이메일 주소를 확인해주세요.');const payload=Object.fromEntries(data);payload.email=email;await api('/member-service/member/create',{method:'POST',body:JSON.stringify(payload)});location.assign('/login.html')})}
-function createProduct(){submit($('productForm'),async data=>{const id=await api('/product-service/product/create',{method:'POST',body:data});location.assign(`/product-detail.html?id=${Number(id)}`)})}
-async function admin(){const products=await api('/product-service/product/admin/list');$('adminProducts').replaceChildren();for(const p of products){const row=document.createElement('tr');row.innerHTML=`<td><a href="/product-detail.html?id=${Number(p.id)}">${esc(p.name)}</a><small>${esc(p.sku||'품번 미등록')}</small><small>${[p.gender,p.category,p.sportStyle].filter(Boolean).map(esc).join(' · ')||'분류 미지정'}</small></td><td>${money(p.price)}</td><td>${Number(p.stockQuantity)}</td><td><form class="visibility-form"><select name="hideWhenSoldOut" aria-label="${esc(p.name)} 품절 시 공개"><option value="false" ${!p.hideWhenSoldOut?'selected':''}>품절이어도 표시</option><option value="true" ${p.hideWhenSoldOut?'selected':''}>품절 시 숨김</option></select><button class="small-button" type="submit">공개 설정 저장</button></form></td><td><button type="button" class="small-button edit">수정</button><form class="restock-form"><input name="quantity" type="number" min="1" max="2147483647" step="1" required aria-label="${esc(p.name)} 재입고 수량"><button class="small-button" type="submit">재입고</button></form></td>`;row.querySelector('.edit').onclick=()=>{const form=$('editForm');form.dataset.productId=p.id;for(const f of ['sku','name','category','gender','sportStyle','description','price'])form.elements.namedItem(f).value=p[f]??'';$('editPanel').hidden=false;$('editPanel').scrollIntoView({behavior:'smooth',block:'center'})};submit(row.querySelector('.restock-form'),async data=>{await api(`/product-service/product/${p.id}/restock`,{method:'POST',body:JSON.stringify({quantity:Number(data.get('quantity'))})});await admin();msg('adminMessage','재입고가 반영되었습니다.')},'adminMessage');submit(row.querySelector('.visibility-form'),async data=>{await api(`/product-service/product/${p.id}/sold-out-visibility`,{method:'PUT',body:JSON.stringify({hideWhenSoldOut:data.get('hideWhenSoldOut')==='true'})});await admin();msg('adminMessage','품절 상품 공개 설정을 저장했습니다.')},'adminMessage');$('adminProducts').append(row)}if(!products.length)$('adminProducts').innerHTML='<tr><td colspan="5">등록된 상품이 없습니다. 새 상품 등록으로 시작하세요.</td></tr>'}
-function bindAdmin(){$('cancelEdit').onclick=()=>{$('editPanel').hidden=true};submit($('editForm'),async data=>{const payload=Object.fromEntries(data);payload.price=Number(payload.price);await api(`/product-service/product/${$('editForm').dataset.productId}`,{method:'PUT',body:JSON.stringify(payload)});$('editPanel').hidden=true;await admin();msg('adminMessage','상품 정보가 변경되었습니다. 기존 재고는 유지했습니다.')})}
-async function orders(){const list=await api('/ordering-service/ordering/mine');$('orderList').innerHTML=list.length?list.map(o=>`<article class="order-card"><div><span class="eyebrow">ORDER #${Number(o.id)} · ${esc(o.orderStatus)}</span><h2>${esc(o.productName||`기존 주문 · 상품 #${o.productId}`)}</h2><p>${esc(o.createdTime?new Date(o.createdTime).toLocaleString('ko-KR'):'주문 시각 기록 없음')} · 수량 ${Number(o.quantity)}</p><a class="text-link" href="/product-detail.html?id=${Number(o.productId)}">상품 보기 →</a></div><div class="order-total">${o.unitPrice==null?'이전 주문의 가격 기록 없음':money(Number(o.unitPrice)*Number(o.quantity))}</div></article>`).join(''):'<div class="empty">아직 주문 내역이 없습니다.<br>나만의 스타일을 찾아보세요.</div>'}
-document.addEventListener('DOMContentLoaded',async()=>{try{const auth=await header(),page=document.body.dataset.page;if(['admin','create'].includes(page)&&!guard(auth,true))return;if(page==='orders'&&!guard(auth))return;if(page==='catalog')await catalog();if(page==='detail')await detail(auth);if(page==='login')login();if(page==='signup')signup();if(page==='create')createProduct();if(page==='admin'){bindAdmin();await admin()}if(page==='orders')await orders()}catch(e){const id=({admin:'adminMessage',orders:'orderMessage',catalog:'catalogMessage'})[document.body.dataset.page]||'formMessage';if($(id))msg(id,e.message,true);else{const p=document.createElement('p');p.className='empty';p.textContent=e.message;document.querySelector('main').replaceChildren(p)}}});
+
+function toggleHeaderMenus(auth) {
+  document.querySelectorAll('[data-guest-only]').forEach(function (el) {
+    el.style.display = auth ? 'none' : '';
+  });
+
+  document.querySelectorAll('[data-auth-only]').forEach(function (el) {
+    el.style.display = auth ? '' : 'none';
+  });
+}
+
+function renderHeader() {
+  const auth = getAuth();
+  const userBox = document.getElementById('userBox');
+
+  toggleHeaderMenus(auth);
+
+  if (!userBox) {
+    return;
+  }
+
+  if (auth) {
+    userBox.innerHTML = `
+      <div class="user-chip">
+        <span class="user-chip-label">${auth.nickname || auth.name || auth.loginId || auth.email}님</span>
+        <button class="btn btn-dark" id="logoutBtn" type="button">로그아웃</button>
+      </div>
+    `;
+    const logoutBtn = document.getElementById('logoutBtn');
+    logoutBtn.addEventListener('click', function () {
+      clearAuth();
+      window.location.href = '/';
+    });
+  } else {
+    userBox.innerHTML = '';
+  }
+}
+
+function showMessage(targetId, message, type) {
+  const target = document.getElementById(targetId);
+  if (!target) {
+    return;
+  }
+  target.className = `message ${type}`;
+  target.textContent = message;
+  target.style.display = 'block';
+}
+
+async function apiRequest(url, options = {}) {
+  const headers = options.headers || {};
+  const token = getToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(`${API_BASE}${url}`, {
+    ...options,
+    headers
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || '요청 처리 중 오류가 발생했습니다.');
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+  return response.text();
+}
+
+function getImageUrl(url) {
+  if (!url) {
+    return PLACEHOLDER_IMAGE;
+  }
+
+  // 기존 S3 이미지 저장소 주소
+  const s3Origin =
+    'https://sales-mall-dev-product-images-021158485482-ap-northeast-2.s3.ap-northeast-2.amazonaws.com';
+
+  // Terraform ConfigMap에서 제공하는 CloudFront 주소
+  const cdnDomain =
+    window.YOBI_CONFIG && window.YOBI_CONFIG.cloudfrontDomain;
+
+  if (url.startsWith(`${s3Origin}/products/`)) {
+    if (!cdnDomain) {
+      console.error('[Yobi V1] CloudFront configuration missing');
+      return PLACEHOLDER_IMAGE;
+    }
+
+    return `https://${cdnDomain}${url.slice(s3Origin.length)}`;
+  }
+
+  return url;
+}
+
+function formatPrice(value) {
+  return `${Number(value || 0).toLocaleString()}원`;
+}
+
+function getProductDetailUrl(productId) {
+  return `/product-detail.html?id=${productId}`;
+}
+
+function goToProductDetail(productId) {
+  window.location.href = getProductDetailUrl(productId);
+}
+
+window.goToProductDetail = goToProductDetail;
+
+function getQueryParam(name) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+
+function buildStockBadge(stockQuantity) {
+  if (stockQuantity < 1) {
+    return '<span class="stock-badge soldout">품절</span>';
+  }
+  if (stockQuantity < 6) {
+    return '<span class="stock-badge limited">수량한정</span>';
+  }
+  return '<span class="stock-badge normal">판매중</span>';
+}
+
+async function loadProducts() {
+  const productList = document.getElementById('productList');
+  if (!productList) {
+    return;
+  }
+
+  try {
+    const products = await apiRequest('/product-service/product/list', { method: 'GET', headers: {} });
+    const countEl = document.getElementById('productCount');
+    if (countEl) {
+      countEl.textContent = `총 ${products.length}개의 상품`;
+    }
+
+    if (!products.length) {
+      productList.innerHTML = '<div class="empty">등록된 상품이 없습니다. 첫 상품을 등록해보세요.</div>';
+      return;
+    }
+
+    productList.innerHTML = products.map(function (product) {
+      return `
+        <article class="card card-link" onclick="goToProductDetail(${product.id})" role="button" tabindex="0">
+          <div class="card-image-wrap">
+            <img src="${getImageUrl(product.imageUrl)}" alt="${product.name}">
+            ${buildStockBadge(product.stockQuantity)}
+          </div>
+          <div class="card-body">
+            <div class="card-meta-row">
+              <span class="card-meta">${product.category || '전체 카테고리'}</span>
+            </div>
+            <div class="card-title">${product.name}</div>
+            <div class="card-price">${formatPrice(product.price)}</div>
+            <div class="card-sub">재고 ${product.stockQuantity}개</div>
+            <div class="card-description">${product.description || '등록된 상품 설명이 없습니다.'}</div>
+          </div>
+        </article>
+      `;
+    }).join('');
+  } catch (error) {
+    productList.innerHTML = '<div class="empty">상품 목록을 불러오지 못했습니다.</div>';
+  }
+}
+
+function guardLogin(redirectPath) {
+  if (!getToken()) {
+    alert('로그인 후 이용해주세요.');
+    window.location.href = redirectPath || '/login.html';
+    return false;
+  }
+  return true;
+}
+
+async function loadProductDetail() {
+  const target = document.getElementById('productDetail');
+  if (!target) {
+    return;
+  }
+
+  const productId = getQueryParam('id');
+  if (!productId) {
+    target.innerHTML = '<div class="empty">상품 정보가 없습니다.</div>';
+    return;
+  }
+
+  try {
+    const product = await apiRequest(`/product-service/product/${productId}`, { method: 'GET', headers: {} });
+    target.innerHTML = `
+      <section class="detail-card">
+        <div class="detail-image-wrap">
+          <img class="detail-image" src="${getImageUrl(product.imageUrl)}" alt="${product.name}">
+        </div>
+        <div class="detail-content">
+          <div class="detail-category">${product.category || '전체 카테고리'}</div>
+          <h1 class="detail-title">${product.name}</h1>
+          <div class="detail-price">${formatPrice(product.price)}</div>
+          <div class="detail-stock" id="detailStock">재고: ${product.stockQuantity}개</div>
+          <p class="detail-description">${product.description || '상품 설명이 없습니다.'}</p>
+          <div class="detail-actions">
+            <button class="btn btn-primary btn-large" id="purchaseBtn" type="button" ${product.stockQuantity < 1 ? 'disabled' : ''}>구매하기</button>
+            <a class="btn btn-light btn-large" href="/">메인으로</a>
+          </div>
+          <div id="purchaseMessage" style="display:none;"></div>
+        </div>
+      </section>
+    `;
+
+    const purchaseBtn = document.getElementById('purchaseBtn');
+    if (purchaseBtn) {
+      purchaseBtn.addEventListener('click', async function () {
+        if (!guardLogin('/login.html')) {
+          return;
+        }
+
+        if (product.stockQuantity < 1) {
+          showMessage('purchaseMessage', '재고가 부족합니다.', 'error');
+          return;
+        }
+
+        purchaseBtn.disabled = true;
+        try {
+          await apiRequest('/ordering-service/ordering/create', {
+            method: 'POST',
+            body: JSON.stringify({
+              productId: product.id,
+              productCount: 1
+            })
+          });
+          alert('주문이 완료되었습니다.');
+          window.location.href = '/';
+        } catch (error) {
+          purchaseBtn.disabled = false;
+          showMessage('purchaseMessage', error.message || '구매에 실패했습니다.', 'error');
+        }
+      });
+    }
+  } catch (error) {
+    target.innerHTML = '<div class="empty">상품 상세 정보를 불러오지 못했습니다.</div>';
+  }
+}

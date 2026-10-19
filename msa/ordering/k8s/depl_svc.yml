@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: ordering-depl
   namespace: soldesk
-  annotations:
-    argocd.argoproj.io/sync-wave: "-10"
 spec:
   selector:
     matchLabels:
@@ -18,10 +16,9 @@ spec:
       labels:
         app: ordering 
     spec:
-      serviceAccountName: order-notifications
       containers:
       - name: ordering-container
-        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-ordering:6508b0d8a9ad97505be160522a40c6108ddce9e1-39138395458-1
+        image: 021158485482.dkr.ecr.ap-northeast-2.amazonaws.com/sales-mall-dev-ordering:e664f3a1752879ade7392bf944f95aa4e31d75f9-38750058478-1
         ports:
         - containerPort: 8080
         resources:
@@ -33,15 +30,7 @@ spec:
           requests:
             cpu: "0.5"
             memory: "250Mi"
-        envFrom:
-        - configMapRef:
-            name: order-notifications
         env:
-        - name: JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: jwt-secrets
-              key: JWT_SECRET_KEY
         - name: DB_HOST
           valueFrom:
             secretKeyRef:
