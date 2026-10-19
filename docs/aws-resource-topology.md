@@ -6,7 +6,7 @@
 
 [![AWS 리소스 상세 토폴로지](assets/aws-resources-detail.png)](assets/aws-resources-detail.png)
 
-[확대 PNG](assets/aws-resources-detail.png) · [편집 가능한 SVG](assets/aws-resources-detail.svg)
+[확대 PNG](assets/aws-resources-detail.png) · [편집 가능한 SVG](assets/aws-resources-detail.svg) · [아이콘 출처](icon-sources.md)
 
 그림의 AWS 관리 서비스는 논리적으로 배치했습니다. IAM·Route 53·CloudFront는 전역 서비스이며, 오른쪽 서비스 상자는 VPC 내부 배치를 뜻하지 않습니다. AZ ①/②는 변수 배열 순서입니다. `a`/`b`라는 서브넷 키가 실제 AZ 이름의 a/b 접미사를 뜻하지는 않습니다.
 
