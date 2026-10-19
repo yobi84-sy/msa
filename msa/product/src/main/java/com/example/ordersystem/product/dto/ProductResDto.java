@@ -16,6 +16,7 @@ public class ProductResDto {
     private String category;
     private String gender;
     private String sportStyle;
+    private boolean hideWhenSoldOut;
     private String description;
     private String imageUrl;
     private int price;
